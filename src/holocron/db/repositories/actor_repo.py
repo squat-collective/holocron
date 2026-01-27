@@ -276,7 +276,3 @@ class ActorRepository:
             result = await session.run(query, {"uid": uid})
             record = await result.single()
             return record is not None and record["deleted"] > 0
-
-
-# Global repository instance
-actor_repository = ActorRepository()

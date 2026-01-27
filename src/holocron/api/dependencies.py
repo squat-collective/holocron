@@ -66,6 +66,7 @@ def get_relation_service(
 
 # Type aliases for cleaner route signatures
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
+EventRepositoryDep = Annotated[EventRepository, Depends(get_event_repository)]
 AssetServiceDep = Annotated[AssetService, Depends(get_asset_service)]
 ActorServiceDep = Annotated[ActorService, Depends(get_actor_service)]
 RelationServiceDep = Annotated[RelationService, Depends(get_relation_service)]

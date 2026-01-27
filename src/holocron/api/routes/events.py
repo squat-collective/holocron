@@ -2,19 +2,20 @@
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from holocron.api.dependencies import EventRepositoryDep
 from holocron.api.schemas.events import (
     EntityType,
     EventAction,
     EventListResponse,
     EventResponse,
 )
-from holocron.db.repositories.event_repo import event_repository
 
 router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.get("", response_model=EventListResponse)
 async def list_events(
+    repo: EventRepositoryDep,
     entity_type: EntityType | None = Query(None, description="Filter by entity type"),
     entity_uid: str | None = Query(None, description="Filter by entity UID"),
     action: EventAction | None = Query(None, description="Filter by action"),
@@ -22,7 +23,7 @@ async def list_events(
     offset: int = Query(0, ge=0, description="Number of items to skip"),
 ) -> EventListResponse:
     """List events with optional filtering."""
-    items, total = await event_repository.list(
+    items, total = await repo.list(
         entity_type=entity_type,
         entity_uid=entity_uid,
         action=action,
@@ -33,9 +34,9 @@ async def list_events(
 
 
 @router.get("/{uid}", response_model=EventResponse)
-async def get_event(uid: str) -> EventResponse:
+async def get_event(uid: str, repo: EventRepositoryDep) -> EventResponse:
     """Get a single event by UID."""
-    event = await event_repository.get_by_uid(uid)
+    event = await repo.get_by_uid(uid)
     if event is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"

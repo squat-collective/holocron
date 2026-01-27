@@ -1,6 +1,6 @@
 """Domain models."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -69,8 +69,8 @@ class Asset(BaseModel):
     description: str | None = None
     location: str | None = None
     status: AssetStatus = AssetStatus.ACTIVE
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -102,6 +102,6 @@ class Event(BaseModel):
     entity_type: EntityType
     entity_uid: str
     actor_uid: str | None = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     changes: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)

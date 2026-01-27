@@ -56,6 +56,23 @@ class RelationService:
             )
             return result
 
+    async def get(self, uid: str) -> RelationResponse:
+        """Get a relation by UID.
+
+        Args:
+            uid: The relation UID.
+
+        Returns:
+            The relation.
+
+        Raises:
+            NotFoundError: If relation not found.
+        """
+        result = await self.relation_repo.get_by_uid(uid)
+        if result is None:
+            raise NotFoundError(f"Relation {uid} not found")
+        return result
+
     async def list(
         self,
         relation_type: RelationType | None = None,

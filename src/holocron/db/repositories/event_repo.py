@@ -211,7 +211,3 @@ class EventRepository:
             total = count_record["total"] if count_record else 0
 
             return items, total
-
-
-# Global repository instance
-event_repository = EventRepository()

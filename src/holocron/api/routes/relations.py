@@ -44,6 +44,12 @@ async def list_relations(
     )
 
 
+@router.get("/{uid}", response_model=RelationResponse)
+async def get_relation(uid: str, service: RelationServiceDep) -> RelationResponse:
+    """Get a single relation by UID."""
+    return await service.get(uid)
+
+
 @router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("30/minute")
 async def delete_relation(
