@@ -2,12 +2,14 @@
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from holocron.api.schemas.events import EntityType, EventAction
 from holocron.api.schemas.relations import (
     RelationCreate,
     RelationListResponse,
     RelationResponse,
     RelationType,
 )
+from holocron.db.repositories.event_repo import event_repository
 from holocron.db.repositories.relation_repo import relation_repository
 
 router = APIRouter(prefix="/relations", tags=["relations"])
@@ -22,6 +24,14 @@ async def create_relation(relation: RelationCreate) -> RelationResponse:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Source or target node not found",
         )
+
+    await event_repository.log(
+        action=EventAction.CREATED,
+        entity_type=EntityType.RELATION,
+        entity_uid=result.uid,
+        changes={"relation": relation.model_dump(mode="json")},
+    )
+
     return result
 
 
@@ -47,8 +57,22 @@ async def list_relations(
 @router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_relation(uid: str) -> None:
     """Delete a relation."""
+    # Get current state before deletion
+    current = await relation_repository.get_by_uid(uid)
+    if current is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Relation not found"
+        )
+
     deleted = await relation_repository.delete(uid)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Relation not found"
         )
+
+    await event_repository.log(
+        action=EventAction.DELETED,
+        entity_type=EntityType.RELATION,
+        entity_uid=uid,
+        changes={"relation": current.model_dump(mode="json")},
+    )

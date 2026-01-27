@@ -9,7 +9,9 @@ from holocron.api.schemas.actors import (
     ActorType,
     ActorUpdate,
 )
+from holocron.api.schemas.events import EntityType, EventAction
 from holocron.db.repositories.actor_repo import actor_repository
+from holocron.db.repositories.event_repo import event_repository
 
 router = APIRouter(prefix="/actors", tags=["actors"])
 
@@ -17,7 +19,14 @@ router = APIRouter(prefix="/actors", tags=["actors"])
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ActorResponse)
 async def create_actor(actor: ActorCreate) -> ActorResponse:
     """Create a new actor (person or group)."""
-    return await actor_repository.create(actor)
+    result = await actor_repository.create(actor)
+    await event_repository.log(
+        action=EventAction.CREATED,
+        entity_type=EntityType.ACTOR,
+        entity_uid=result.uid,
+        changes={"actor": actor.model_dump(mode="json")},
+    )
+    return result
 
 
 @router.get("", response_model=ActorListResponse)
@@ -43,15 +52,50 @@ async def get_actor(uid: str) -> ActorResponse:
 @router.put("/{uid}", response_model=ActorResponse)
 async def update_actor(uid: str, actor: ActorUpdate) -> ActorResponse:
     """Update an existing actor."""
+    # Get current state for change tracking
+    current = await actor_repository.get_by_uid(uid)
+    if current is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Actor not found")
+
     updated = await actor_repository.update(uid, actor)
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Actor not found")
+
+    # Log changes (only fields that were actually updated)
+    changes: dict[str, dict[str, object]] = {}
+    update_data = actor.model_dump(exclude_none=True)
+    current_data = current.model_dump(mode="json")
+    for field, new_value in update_data.items():
+        old_value = current_data.get(field)
+        if old_value != new_value:
+            changes[field] = {"old": old_value, "new": new_value}
+
+    if changes:
+        await event_repository.log(
+            action=EventAction.UPDATED,
+            entity_type=EntityType.ACTOR,
+            entity_uid=uid,
+            changes=changes,
+        )
+
     return updated
 
 
 @router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_actor(uid: str) -> None:
     """Delete an actor."""
+    # Get current state before deletion
+    current = await actor_repository.get_by_uid(uid)
+    if current is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Actor not found")
+
     deleted = await actor_repository.delete(uid)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Actor not found")
+
+    await event_repository.log(
+        action=EventAction.DELETED,
+        entity_type=EntityType.ACTOR,
+        entity_uid=uid,
+        changes={"actor": current.model_dump(mode="json")},
+    )

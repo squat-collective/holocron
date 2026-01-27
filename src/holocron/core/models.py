@@ -44,6 +44,22 @@ class RelationType(str, Enum):
     MEMBER_OF = "member_of"
 
 
+class EventAction(str, Enum):
+    """Types of audit actions."""
+
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+
+
+class EntityType(str, Enum):
+    """Types of entities that can be tracked."""
+
+    ASSET = "asset"
+    ACTOR = "actor"
+    RELATION = "relation"
+
+
 class Asset(BaseModel):
     """A data asset in the system."""
 
@@ -75,4 +91,17 @@ class Relation(BaseModel):
     type: RelationType
     source_uid: str
     target_uid: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class Event(BaseModel):
+    """An audit log event."""
+
+    uid: str
+    action: EventAction
+    entity_type: EntityType
+    entity_uid: str
+    actor_uid: str | None = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    changes: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)

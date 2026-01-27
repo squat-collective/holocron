@@ -83,6 +83,25 @@ class RelationRepository:
                 return None
             return _record_to_relation(dict(record))
 
+    async def get_by_uid(self, uid: str) -> RelationResponse | None:
+        """Get a relation by its UID."""
+        query = """
+            MATCH (from)-[r {uid: $uid}]->(to)
+            RETURN r.uid as uid,
+                   from.uid as from_uid,
+                   to.uid as to_uid,
+                   r.type as type,
+                   r.properties as properties,
+                   r.created_at as created_at
+        """
+
+        async with neo4j_driver.session() as session:
+            result = await session.run(query, {"uid": uid})
+            record = await result.single()
+            if record is None:
+                return None
+            return _record_to_relation(dict(record))
+
     async def list(
         self,
         relation_type: RelationType | None = None,
