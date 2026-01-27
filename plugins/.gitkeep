@@ -1,0 +1,8 @@
+# Custom reader plugins go here
+#
+# Each plugin is a Python package with a reader.py module:
+#
+# plugins/
+# └── excel_reader/
+#     ├── __init__.py
+#     └── reader.py  <- exports 'reader' instance
