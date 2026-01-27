@@ -31,6 +31,3 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(assets.router, prefix="/api/v1")
 app.include_router(actors.router, prefix="/api/v1")
 app.include_router(relations.router, prefix="/api/v1")
-
-# TODO: Add more routes as we implement them
-# app.include_router(readers.router, prefix="/api/v1", tags=["readers"])

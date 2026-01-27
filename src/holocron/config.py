@@ -22,8 +22,5 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = "holocron"
 
-    # Readers
-    plugins_dir: str = "./plugins"
-
 
 settings = Settings()
