@@ -2,7 +2,7 @@
 
 from typing import Self
 
-from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession
 
 from holocron.config import settings
 

@@ -69,6 +69,8 @@ select = [
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (common FastAPI pattern for Query/Depends)
+    "B024",   # abstract base class without abstract methods (stubs are OK)
 ]
 
 [tool.ruff.lint.isort]

@@ -11,7 +11,7 @@ class ReaderRegistry:
     """Registry for discovering and managing readers."""
 
     def __init__(self) -> None:
-        self._readers: dict[str, "BaseReader"] = {}
+        self._readers: dict[str, BaseReader] = {}
 
     def register(self, reader: "BaseReader") -> None:
         """Register a reader."""

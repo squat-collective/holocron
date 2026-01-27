@@ -12,12 +12,14 @@ services:
       neo4j:
         condition: service_healthy
     volumes:
-      # Mount source for development (hot reload)
-      - ./src:/app/src:ro
+      # Mount source for development (hot reload + formatting)
+      - ./src:/app/src
       # Mount plugins
-      - ./plugins:/app/plugins:ro
+      - ./plugins:/app/plugins
       # Mount tests
-      - ./tests:/app/tests:ro
+      - ./tests:/app/tests
+      # Mount pyproject.toml for linter config
+      - ./pyproject.toml:/app/pyproject.toml
     develop:
       watch:
         - action: sync
