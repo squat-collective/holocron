@@ -1,7 +1,8 @@
 """Relation API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
+from holocron.api.middleware.rate_limit import limiter
 from holocron.api.schemas.events import EntityType, EventAction
 from holocron.api.schemas.relations import (
     RelationCreate,
@@ -17,7 +18,8 @@ router = APIRouter(prefix="/relations", tags=["relations"])
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=RelationResponse)
-async def create_relation(relation: RelationCreate) -> RelationResponse:
+@limiter.limit("30/minute")
+async def create_relation(request: Request, relation: RelationCreate) -> RelationResponse:
     """Create a new relation between two nodes."""
     async with neo4j_driver.transaction() as tx:
         result = await relation_repository.create(relation, tx=tx)
@@ -58,7 +60,8 @@ async def list_relations(
 
 
 @router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_relation(uid: str) -> None:
+@limiter.limit("30/minute")
+async def delete_relation(request: Request, uid: str) -> None:
     """Delete a relation."""
     async with neo4j_driver.transaction() as tx:
         # Get current state before deletion

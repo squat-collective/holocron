@@ -4,7 +4,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
+from holocron.api.middleware.rate_limit import limiter
 from holocron.api.routes import actors, assets, events, health, relations
 from holocron.db.connection import neo4j_driver
 from holocron.db.init import init_constraints
@@ -27,6 +30,10 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Register routes
 app.include_router(health.router, prefix="/api/v1", tags=["health"])

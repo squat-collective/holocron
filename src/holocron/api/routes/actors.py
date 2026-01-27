@@ -1,7 +1,8 @@
 """Actor API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
+from holocron.api.middleware.rate_limit import limiter
 from holocron.api.schemas.actors import (
     ActorCreate,
     ActorListResponse,
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/actors", tags=["actors"])
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ActorResponse)
-async def create_actor(actor: ActorCreate) -> ActorResponse:
+@limiter.limit("30/minute")
+async def create_actor(request: Request, actor: ActorCreate) -> ActorResponse:
     """Create a new actor (person or group)."""
     async with neo4j_driver.transaction() as tx:
         result = await actor_repository.create(actor, tx=tx)
@@ -53,7 +55,8 @@ async def get_actor(uid: str) -> ActorResponse:
 
 
 @router.put("/{uid}", response_model=ActorResponse)
-async def update_actor(uid: str, actor: ActorUpdate) -> ActorResponse:
+@limiter.limit("30/minute")
+async def update_actor(request: Request, uid: str, actor: ActorUpdate) -> ActorResponse:
     """Update an existing actor."""
     async with neo4j_driver.transaction() as tx:
         # Get current state for change tracking
@@ -87,7 +90,8 @@ async def update_actor(uid: str, actor: ActorUpdate) -> ActorResponse:
 
 
 @router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_actor(uid: str) -> None:
+@limiter.limit("30/minute")
+async def delete_actor(request: Request, uid: str) -> None:
     """Delete an actor."""
     async with neo4j_driver.transaction() as tx:
         # Get current state before deletion

@@ -1,7 +1,8 @@
 """Asset API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
+from holocron.api.middleware.rate_limit import limiter
 from holocron.api.schemas.assets import (
     AssetCreate,
     AssetListResponse,
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/assets", tags=["assets"])
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=AssetResponse)
-async def create_asset(asset: AssetCreate) -> AssetResponse:
+@limiter.limit("30/minute")
+async def create_asset(request: Request, asset: AssetCreate) -> AssetResponse:
     """Create a new asset."""
     async with neo4j_driver.transaction() as tx:
         result = await asset_repository.create(asset, tx=tx)
@@ -53,7 +55,8 @@ async def get_asset(uid: str) -> AssetResponse:
 
 
 @router.put("/{uid}", response_model=AssetResponse)
-async def update_asset(uid: str, asset: AssetUpdate) -> AssetResponse:
+@limiter.limit("30/minute")
+async def update_asset(request: Request, uid: str, asset: AssetUpdate) -> AssetResponse:
     """Update an existing asset."""
     async with neo4j_driver.transaction() as tx:
         # Get current state for change tracking
@@ -87,7 +90,8 @@ async def update_asset(uid: str, asset: AssetUpdate) -> AssetResponse:
 
 
 @router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_asset(uid: str) -> None:
+@limiter.limit("30/minute")
+async def delete_asset(request: Request, uid: str) -> None:
     """Delete an asset."""
     async with neo4j_driver.transaction() as tx:
         # Get current state before deletion
