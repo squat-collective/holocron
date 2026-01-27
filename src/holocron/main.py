@@ -3,12 +3,20 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from holocron.api.middleware.rate_limit import limiter
 from holocron.api.routes import actors, assets, events, health, relations
+from holocron.core.exceptions import (
+    DatabaseError,
+    DuplicateError,
+    HolocronError,
+    NotFoundError,
+    ValidationError,
+)
 from holocron.db.connection import neo4j_driver
 from holocron.db.init import init_constraints
 
@@ -34,6 +42,53 @@ app = FastAPI(
 # Add rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# Custom exception handlers for consistent error responses
+@app.exception_handler(NotFoundError)
+async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
+    """Handle NotFoundError with 404 response."""
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": str(exc), "error": "not_found"},
+    )
+
+
+@app.exception_handler(DuplicateError)
+async def duplicate_handler(request: Request, exc: DuplicateError) -> JSONResponse:
+    """Handle DuplicateError with 409 response."""
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"detail": str(exc), "error": "duplicate"},
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
+    """Handle ValidationError with 422 response."""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": str(exc), "error": "validation_error"},
+    )
+
+
+@app.exception_handler(DatabaseError)
+async def database_handler(request: Request, exc: DatabaseError) -> JSONResponse:
+    """Handle DatabaseError with 503 response."""
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Database operation failed", "error": "database_error"},
+    )
+
+
+@app.exception_handler(HolocronError)
+async def holocron_handler(request: Request, exc: HolocronError) -> JSONResponse:
+    """Handle generic HolocronError with 500 response."""
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": str(exc), "error": "internal_error"},
+    )
+
 
 # Register routes
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
