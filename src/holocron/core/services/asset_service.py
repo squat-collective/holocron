@@ -11,7 +11,7 @@ from holocron.api.schemas.assets import (
 )
 from holocron.api.schemas.events import EntityType, EventAction
 from holocron.core.exceptions import NotFoundError
-from holocron.db.connection import neo4j_driver
+from holocron.db.connection import Neo4jDriver
 from holocron.db.repositories.asset_repo import AssetRepository
 from holocron.db.repositories.event_repo import EventRepository
 
@@ -23,15 +23,18 @@ class AssetService:
         self,
         asset_repo: AssetRepository,
         event_repo: EventRepository,
+        driver: Neo4jDriver,
     ) -> None:
         """Initialize service with repositories.
 
         Args:
             asset_repo: Repository for asset operations.
             event_repo: Repository for event logging.
+            driver: Neo4j driver for transaction management.
         """
         self.asset_repo = asset_repo
         self.event_repo = event_repo
+        self.driver = driver
 
     async def create(self, asset: AssetCreate) -> AssetResponse:
         """Create a new asset with audit logging.
@@ -42,7 +45,7 @@ class AssetService:
         Returns:
             The created asset.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             result = await self.asset_repo.create(asset, tx=tx)
             await self.event_repo.log(
                 action=EventAction.CREATED,
@@ -86,11 +89,13 @@ class AssetService:
         Returns:
             Paginated list of assets.
         """
-        items, total = await self.asset_repo.list(
-            asset_type=asset_type,
-            limit=limit,
-            offset=offset,
-        )
+        async with self.driver.session() as session:
+            items, total = await self.asset_repo.list(
+                asset_type=asset_type,
+                limit=limit,
+                offset=offset,
+                tx=session,
+            )
         return AssetListResponse(items=items, total=total)
 
     async def update(self, uid: str, asset: AssetUpdate) -> AssetResponse:
@@ -106,7 +111,7 @@ class AssetService:
         Raises:
             NotFoundError: If asset not found.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             # Get current state for change tracking
             current = await self.asset_repo.get_by_uid(uid, tx=tx)
             if current is None:
@@ -138,7 +143,7 @@ class AssetService:
         Raises:
             NotFoundError: If asset not found.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             # Get current state before deletion
             current = await self.asset_repo.get_by_uid(uid, tx=tx)
             if current is None:

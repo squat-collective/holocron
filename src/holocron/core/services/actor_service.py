@@ -11,7 +11,7 @@ from holocron.api.schemas.actors import (
 )
 from holocron.api.schemas.events import EntityType, EventAction
 from holocron.core.exceptions import NotFoundError
-from holocron.db.connection import neo4j_driver
+from holocron.db.connection import Neo4jDriver
 from holocron.db.repositories.actor_repo import ActorRepository
 from holocron.db.repositories.event_repo import EventRepository
 
@@ -23,15 +23,18 @@ class ActorService:
         self,
         actor_repo: ActorRepository,
         event_repo: EventRepository,
+        driver: Neo4jDriver,
     ) -> None:
         """Initialize service with repositories.
 
         Args:
             actor_repo: Repository for actor operations.
             event_repo: Repository for event logging.
+            driver: Neo4j driver for transaction management.
         """
         self.actor_repo = actor_repo
         self.event_repo = event_repo
+        self.driver = driver
 
     async def create(self, actor: ActorCreate) -> ActorResponse:
         """Create a new actor with audit logging.
@@ -42,7 +45,7 @@ class ActorService:
         Returns:
             The created actor.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             result = await self.actor_repo.create(actor, tx=tx)
             await self.event_repo.log(
                 action=EventAction.CREATED,
@@ -86,11 +89,13 @@ class ActorService:
         Returns:
             Paginated list of actors.
         """
-        items, total = await self.actor_repo.list(
-            actor_type=actor_type,
-            limit=limit,
-            offset=offset,
-        )
+        async with self.driver.session() as session:
+            items, total = await self.actor_repo.list(
+                actor_type=actor_type,
+                limit=limit,
+                offset=offset,
+                tx=session,
+            )
         return ActorListResponse(items=items, total=total)
 
     async def update(self, uid: str, actor: ActorUpdate) -> ActorResponse:
@@ -106,7 +111,7 @@ class ActorService:
         Raises:
             NotFoundError: If actor not found.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             # Get current state for change tracking
             current = await self.actor_repo.get_by_uid(uid, tx=tx)
             if current is None:
@@ -138,7 +143,7 @@ class ActorService:
         Raises:
             NotFoundError: If actor not found.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             # Get current state before deletion
             current = await self.actor_repo.get_by_uid(uid, tx=tx)
             if current is None:

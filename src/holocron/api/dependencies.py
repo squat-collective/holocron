@@ -7,7 +7,7 @@ from fastapi import Depends
 from neo4j import AsyncSession
 
 from holocron.core.services import ActorService, AssetService, RelationService
-from holocron.db.connection import neo4j_driver
+from holocron.db.connection import Neo4jDriver, neo4j_driver
 from holocron.db.repositories.actor_repo import ActorRepository
 from holocron.db.repositories.asset_repo import AssetRepository
 from holocron.db.repositories.event_repo import EventRepository
@@ -40,28 +40,36 @@ def get_event_repository() -> EventRepository:
     return EventRepository()
 
 
+def get_neo4j_driver() -> Neo4jDriver:
+    """Get the Neo4j driver instance."""
+    return neo4j_driver
+
+
 def get_asset_service(
     asset_repo: Annotated[AssetRepository, Depends(get_asset_repository)],
     event_repo: Annotated[EventRepository, Depends(get_event_repository)],
+    driver: Annotated[Neo4jDriver, Depends(get_neo4j_driver)],
 ) -> AssetService:
     """Get the asset service with injected dependencies."""
-    return AssetService(asset_repo=asset_repo, event_repo=event_repo)
+    return AssetService(asset_repo=asset_repo, event_repo=event_repo, driver=driver)
 
 
 def get_actor_service(
     actor_repo: Annotated[ActorRepository, Depends(get_actor_repository)],
     event_repo: Annotated[EventRepository, Depends(get_event_repository)],
+    driver: Annotated[Neo4jDriver, Depends(get_neo4j_driver)],
 ) -> ActorService:
     """Get the actor service with injected dependencies."""
-    return ActorService(actor_repo=actor_repo, event_repo=event_repo)
+    return ActorService(actor_repo=actor_repo, event_repo=event_repo, driver=driver)
 
 
 def get_relation_service(
     relation_repo: Annotated[RelationRepository, Depends(get_relation_repository)],
     event_repo: Annotated[EventRepository, Depends(get_event_repository)],
+    driver: Annotated[Neo4jDriver, Depends(get_neo4j_driver)],
 ) -> RelationService:
     """Get the relation service with injected dependencies."""
-    return RelationService(relation_repo=relation_repo, event_repo=event_repo)
+    return RelationService(relation_repo=relation_repo, event_repo=event_repo, driver=driver)
 
 
 # Type aliases for cleaner route signatures

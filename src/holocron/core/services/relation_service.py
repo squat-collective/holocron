@@ -8,7 +8,7 @@ from holocron.api.schemas.relations import (
     RelationType,
 )
 from holocron.core.exceptions import NotFoundError
-from holocron.db.connection import neo4j_driver
+from holocron.db.connection import Neo4jDriver
 from holocron.db.repositories.event_repo import EventRepository
 from holocron.db.repositories.relation_repo import RelationRepository
 
@@ -20,15 +20,18 @@ class RelationService:
         self,
         relation_repo: RelationRepository,
         event_repo: EventRepository,
+        driver: Neo4jDriver,
     ) -> None:
         """Initialize service with repositories.
 
         Args:
             relation_repo: Repository for relation operations.
             event_repo: Repository for event logging.
+            driver: Neo4j driver for transaction management.
         """
         self.relation_repo = relation_repo
         self.event_repo = event_repo
+        self.driver = driver
 
     async def create(self, relation: RelationCreate) -> RelationResponse:
         """Create a new relation with audit logging.
@@ -42,7 +45,7 @@ class RelationService:
         Raises:
             NotFoundError: If source or target node not found.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             result = await self.relation_repo.create(relation, tx=tx)
             if result is None:
                 raise NotFoundError("Source or target node not found")
@@ -93,13 +96,15 @@ class RelationService:
         Returns:
             Paginated list of relations.
         """
-        items, total = await self.relation_repo.list(
-            relation_type=relation_type,
-            from_uid=from_uid,
-            to_uid=to_uid,
-            limit=limit,
-            offset=offset,
-        )
+        async with self.driver.session() as session:
+            items, total = await self.relation_repo.list(
+                relation_type=relation_type,
+                from_uid=from_uid,
+                to_uid=to_uid,
+                limit=limit,
+                offset=offset,
+                tx=session,
+            )
         return RelationListResponse(items=items, total=total)
 
     async def delete(self, uid: str) -> None:
@@ -111,7 +116,7 @@ class RelationService:
         Raises:
             NotFoundError: If relation not found.
         """
-        async with neo4j_driver.transaction() as tx:
+        async with self.driver.transaction() as tx:
             # Get current state before deletion
             current = await self.relation_repo.get_by_uid(uid, tx=tx)
             if current is None:
