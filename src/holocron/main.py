@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from holocron.api.middleware.logging import RequestLoggingMiddleware
 from holocron.api.middleware.rate_limit import limiter
 from holocron.api.routes import actors, assets, events, health, relations
 from holocron.core.exceptions import (
@@ -17,19 +18,29 @@ from holocron.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from holocron.core.logging import get_logger, setup_logging
 from holocron.db.connection import neo4j_driver
 from holocron.db.init import init_constraints
+
+# Setup logging early
+setup_logging()
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler."""
     # Startup
+    logger.info("Starting Holocron application...")
     await neo4j_driver.connect()
+    logger.info("Connected to Neo4j database")
     await init_constraints()
+    logger.info("Database constraints initialized")
     yield
     # Shutdown
+    logger.info("Shutting down Holocron application...")
     await neo4j_driver.disconnect()
+    logger.info("Disconnected from Neo4j database")
 
 
 app = FastAPI(
@@ -38,6 +49,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Add middlewares
+app.add_middleware(RequestLoggingMiddleware)
 
 # Add rate limiting
 app.state.limiter = limiter
