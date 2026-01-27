@@ -7,7 +7,11 @@ from uuid import uuid4
 
 from holocron.api.schemas.actors import ActorCreate, ActorResponse, ActorType, ActorUpdate
 from holocron.db.connection import neo4j_driver
-from holocron.db.utils import neo4j_datetime_to_python, validate_node_label
+from holocron.db.utils import (
+    ExecutionContext,
+    neo4j_datetime_to_python,
+    validate_node_label,
+)
 
 
 def _node_to_actor(node: dict[str, Any]) -> ActorResponse:
@@ -31,8 +35,20 @@ def _node_to_actor(node: dict[str, Any]) -> ActorResponse:
 class ActorRepository:
     """Repository for Actor CRUD operations in Neo4j."""
 
-    async def create(self, actor: ActorCreate) -> ActorResponse:
-        """Create a new actor in Neo4j."""
+    async def create(
+        self,
+        actor: ActorCreate,
+        tx: ExecutionContext | None = None,
+    ) -> ActorResponse:
+        """Create a new actor in Neo4j.
+
+        Args:
+            actor: The actor data to create.
+            tx: Optional transaction context. If None, creates its own session.
+
+        Returns:
+            The created actor response.
+        """
         uid = str(uuid4())
         now = datetime.now(UTC)
         label = validate_node_label(actor.type.value.capitalize())
@@ -62,6 +78,13 @@ class ActorRepository:
             "updated_at": now,
         }
 
+        if tx is not None:
+            result = await tx.run(query, params)
+            record = await result.single()
+            if record is None:
+                raise RuntimeError("Failed to create actor")
+            return _node_to_actor(dict(record["a"]))
+
         async with neo4j_driver.session() as session:
             result = await session.run(query, params)
             record = await result.single()
@@ -69,12 +92,31 @@ class ActorRepository:
                 raise RuntimeError("Failed to create actor")
             return _node_to_actor(dict(record["a"]))
 
-    async def get_by_uid(self, uid: str) -> ActorResponse | None:
-        """Get an actor by its UID."""
+    async def get_by_uid(
+        self,
+        uid: str,
+        tx: ExecutionContext | None = None,
+    ) -> ActorResponse | None:
+        """Get an actor by its UID.
+
+        Args:
+            uid: The unique identifier of the actor.
+            tx: Optional transaction context.
+
+        Returns:
+            The actor response if found, None otherwise.
+        """
         query = """
             MATCH (a:Actor {uid: $uid})
             RETURN a
         """
+
+        if tx is not None:
+            result = await tx.run(query, {"uid": uid})
+            record = await result.single()
+            if record is None:
+                return None
+            return _node_to_actor(dict(record["a"]))
 
         async with neo4j_driver.session() as session:
             result = await session.run(query, {"uid": uid})
@@ -88,8 +130,19 @@ class ActorRepository:
         actor_type: ActorType | None = None,
         limit: int = 50,
         offset: int = 0,
+        tx: ExecutionContext | None = None,
     ) -> tuple[list[ActorResponse], int]:
-        """List actors with optional filtering."""
+        """List actors with optional filtering.
+
+        Args:
+            actor_type: Optional type filter.
+            limit: Maximum number of items to return.
+            offset: Number of items to skip.
+            tx: Optional transaction context.
+
+        Returns:
+            Tuple of (items, total_count).
+        """
         where_clause = ""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
 
@@ -112,6 +165,17 @@ class ActorRepository:
             RETURN count(a) as total
         """
 
+        if tx is not None:
+            result = await tx.run(query, params)
+            records = await result.data()
+            items = [_node_to_actor(dict(r["a"])) for r in records]
+
+            count_result = await tx.run(count_query, params)
+            count_record = await count_result.single()
+            total = count_record["total"] if count_record else 0
+
+            return items, total
+
         async with neo4j_driver.session() as session:
             result = await session.run(query, params)
             records = await result.data()
@@ -123,8 +187,22 @@ class ActorRepository:
 
             return items, total
 
-    async def update(self, uid: str, actor: ActorUpdate) -> ActorResponse | None:
-        """Update an existing actor."""
+    async def update(
+        self,
+        uid: str,
+        actor: ActorUpdate,
+        tx: ExecutionContext | None = None,
+    ) -> ActorResponse | None:
+        """Update an existing actor.
+
+        Args:
+            uid: The unique identifier of the actor.
+            actor: The update data.
+            tx: Optional transaction context.
+
+        Returns:
+            The updated actor response if found, None otherwise.
+        """
         set_parts = ["a.updated_at = $updated_at"]
         params: dict[str, Any] = {
             "uid": uid,
@@ -155,6 +233,13 @@ class ActorRepository:
             RETURN a
         """
 
+        if tx is not None:
+            result = await tx.run(query, params)
+            record = await result.single()
+            if record is None:
+                return None
+            return _node_to_actor(dict(record["a"]))
+
         async with neo4j_driver.session() as session:
             result = await session.run(query, params)
             record = await result.single()
@@ -162,13 +247,30 @@ class ActorRepository:
                 return None
             return _node_to_actor(dict(record["a"]))
 
-    async def delete(self, uid: str) -> bool:
-        """Delete an actor by UID."""
+    async def delete(
+        self,
+        uid: str,
+        tx: ExecutionContext | None = None,
+    ) -> bool:
+        """Delete an actor by UID.
+
+        Args:
+            uid: The unique identifier of the actor.
+            tx: Optional transaction context.
+
+        Returns:
+            True if deleted, False if not found.
+        """
         query = """
             MATCH (a:Actor {uid: $uid})
             DETACH DELETE a
             RETURN count(a) as deleted
         """
+
+        if tx is not None:
+            result = await tx.run(query, {"uid": uid})
+            record = await result.single()
+            return record is not None and record["deleted"] > 0
 
         async with neo4j_driver.session() as session:
             result = await session.run(query, {"uid": uid})

@@ -11,7 +11,11 @@ from holocron.api.schemas.relations import (
     RelationType,
 )
 from holocron.db.connection import neo4j_driver
-from holocron.db.utils import neo4j_datetime_to_python, validate_relationship_type
+from holocron.db.utils import (
+    ExecutionContext,
+    neo4j_datetime_to_python,
+    validate_relationship_type,
+)
 
 
 def _record_to_relation(record: dict[str, Any]) -> RelationResponse:
@@ -33,10 +37,19 @@ def _record_to_relation(record: dict[str, Any]) -> RelationResponse:
 class RelationRepository:
     """Repository for Relation CRUD operations in Neo4j."""
 
-    async def create(self, relation: RelationCreate) -> RelationResponse | None:
+    async def create(
+        self,
+        relation: RelationCreate,
+        tx: ExecutionContext | None = None,
+    ) -> RelationResponse | None:
         """Create a new relation between two nodes.
 
-        Returns None if either node doesn't exist.
+        Args:
+            relation: The relation data to create.
+            tx: Optional transaction context. If None, creates its own session.
+
+        Returns:
+            The created relation response, or None if either node doesn't exist.
         """
         uid = str(uuid4())
         now = datetime.now(UTC)
@@ -68,6 +81,13 @@ class RelationRepository:
             "created_at": now,
         }
 
+        if tx is not None:
+            result = await tx.run(query, params)
+            record = await result.single()
+            if record is None:
+                return None
+            return _record_to_relation(dict(record))
+
         async with neo4j_driver.session() as session:
             result = await session.run(query, params)
             record = await result.single()
@@ -75,8 +95,20 @@ class RelationRepository:
                 return None
             return _record_to_relation(dict(record))
 
-    async def get_by_uid(self, uid: str) -> RelationResponse | None:
-        """Get a relation by its UID."""
+    async def get_by_uid(
+        self,
+        uid: str,
+        tx: ExecutionContext | None = None,
+    ) -> RelationResponse | None:
+        """Get a relation by its UID.
+
+        Args:
+            uid: The unique identifier of the relation.
+            tx: Optional transaction context.
+
+        Returns:
+            The relation response if found, None otherwise.
+        """
         query = """
             MATCH (from)-[r {uid: $uid}]->(to)
             RETURN r.uid as uid,
@@ -86,6 +118,13 @@ class RelationRepository:
                    r.properties as properties,
                    r.created_at as created_at
         """
+
+        if tx is not None:
+            result = await tx.run(query, {"uid": uid})
+            record = await result.single()
+            if record is None:
+                return None
+            return _record_to_relation(dict(record))
 
         async with neo4j_driver.session() as session:
             result = await session.run(query, {"uid": uid})
@@ -101,8 +140,21 @@ class RelationRepository:
         to_uid: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        tx: ExecutionContext | None = None,
     ) -> tuple[list[RelationResponse], int]:
-        """List relations with optional filtering."""
+        """List relations with optional filtering.
+
+        Args:
+            relation_type: Optional type filter.
+            from_uid: Optional source node filter.
+            to_uid: Optional target node filter.
+            limit: Maximum number of items to return.
+            offset: Number of items to skip.
+            tx: Optional transaction context.
+
+        Returns:
+            Tuple of (items, total_count).
+        """
         where_parts: list[str] = []
         params: dict[str, Any] = {"limit": limit, "offset": offset}
 
@@ -140,6 +192,17 @@ class RelationRepository:
             RETURN count(r) as total
         """
 
+        if tx is not None:
+            result = await tx.run(query, params)
+            records = await result.data()
+            items = [_record_to_relation(r) for r in records]
+
+            count_result = await tx.run(count_query, params)
+            count_record = await count_result.single()
+            total = count_record["total"] if count_record else 0
+
+            return items, total
+
         async with neo4j_driver.session() as session:
             result = await session.run(query, params)
             records = await result.data()
@@ -151,13 +214,30 @@ class RelationRepository:
 
             return items, total
 
-    async def delete(self, uid: str) -> bool:
-        """Delete a relation by UID."""
+    async def delete(
+        self,
+        uid: str,
+        tx: ExecutionContext | None = None,
+    ) -> bool:
+        """Delete a relation by UID.
+
+        Args:
+            uid: The unique identifier of the relation.
+            tx: Optional transaction context.
+
+        Returns:
+            True if deleted, False if not found.
+        """
         query = """
             MATCH ()-[r {uid: $uid}]->()
             DELETE r
             RETURN count(r) as deleted
         """
+
+        if tx is not None:
+            result = await tx.run(query, {"uid": uid})
+            record = await result.single()
+            return record is not None and record["deleted"] > 0
 
         async with neo4j_driver.session() as session:
             result = await session.run(query, {"uid": uid})

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from holocron.api.schemas.events import EntityType, EventAction, EventResponse
 from holocron.db.connection import neo4j_driver
-from holocron.db.utils import neo4j_datetime_to_python
+from holocron.db.utils import ExecutionContext, neo4j_datetime_to_python
 
 
 def _node_to_event(node: dict[str, Any]) -> EventResponse:
@@ -43,8 +43,22 @@ class EventRepository:
         actor_uid: str | None = None,
         changes: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
+        tx: ExecutionContext | None = None,
     ) -> EventResponse:
-        """Log a new event."""
+        """Log a new event.
+
+        Args:
+            action: The action performed.
+            entity_type: The type of entity affected.
+            entity_uid: The UID of the affected entity.
+            actor_uid: Optional UID of the actor who performed the action.
+            changes: Optional dict of changes made.
+            metadata: Optional additional metadata.
+            tx: Optional transaction context. If None, creates its own session.
+
+        Returns:
+            The created event response.
+        """
         uid = f"evt-{uuid4()}"
         now = datetime.now(UTC)
 
@@ -73,6 +87,13 @@ class EventRepository:
             "metadata": json.dumps(metadata or {}),
         }
 
+        if tx is not None:
+            result = await tx.run(query, params)
+            record = await result.single()
+            if record is None:
+                raise RuntimeError("Failed to create event")
+            return _node_to_event(dict(record["e"]))
+
         async with neo4j_driver.session() as session:
             result = await session.run(query, params)
             record = await result.single()
@@ -80,12 +101,31 @@ class EventRepository:
                 raise RuntimeError("Failed to create event")
             return _node_to_event(dict(record["e"]))
 
-    async def get_by_uid(self, uid: str) -> EventResponse | None:
-        """Get an event by its UID."""
+    async def get_by_uid(
+        self,
+        uid: str,
+        tx: ExecutionContext | None = None,
+    ) -> EventResponse | None:
+        """Get an event by its UID.
+
+        Args:
+            uid: The unique identifier of the event.
+            tx: Optional transaction context.
+
+        Returns:
+            The event response if found, None otherwise.
+        """
         query = """
             MATCH (e:Event {uid: $uid})
             RETURN e
         """
+
+        if tx is not None:
+            result = await tx.run(query, {"uid": uid})
+            record = await result.single()
+            if record is None:
+                return None
+            return _node_to_event(dict(record["e"]))
 
         async with neo4j_driver.session() as session:
             result = await session.run(query, {"uid": uid})
@@ -101,8 +141,21 @@ class EventRepository:
         action: EventAction | None = None,
         limit: int = 50,
         offset: int = 0,
+        tx: ExecutionContext | None = None,
     ) -> tuple[list[EventResponse], int]:
-        """List events with optional filtering."""
+        """List events with optional filtering.
+
+        Args:
+            entity_type: Optional entity type filter.
+            entity_uid: Optional entity UID filter.
+            action: Optional action filter.
+            limit: Maximum number of items to return.
+            offset: Number of items to skip.
+            tx: Optional transaction context.
+
+        Returns:
+            Tuple of (items, total_count).
+        """
         where_parts: list[str] = []
         params: dict[str, Any] = {"limit": limit, "offset": offset}
 
@@ -134,6 +187,17 @@ class EventRepository:
             {where_clause}
             RETURN count(e) as total
         """
+
+        if tx is not None:
+            result = await tx.run(query, params)
+            records = await result.data()
+            items = [_node_to_event(dict(r["e"])) for r in records]
+
+            count_result = await tx.run(count_query, params)
+            count_record = await count_result.single()
+            total = count_record["total"] if count_record else 0
+
+            return items, total
 
         async with neo4j_driver.session() as session:
             # Get items

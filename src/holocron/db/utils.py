@@ -3,6 +3,11 @@
 from datetime import datetime
 from typing import Any, cast
 
+from neo4j import AsyncManagedTransaction, AsyncSession
+
+# Type alias for Neo4j execution context (either a session or transaction)
+ExecutionContext = AsyncSession | AsyncManagedTransaction
+
 # Allowlist of valid Neo4j labels for nodes
 ALLOWED_NODE_LABELS: frozenset[str] = frozenset(
     {

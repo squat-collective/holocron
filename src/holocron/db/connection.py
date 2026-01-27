@@ -1,8 +1,10 @@
 """Neo4j connection management."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Self
 
-from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction, AsyncSession
 
 from holocron.config import settings
 
@@ -40,6 +42,25 @@ class Neo4jDriver:
         if not self._driver:
             raise RuntimeError("Neo4j driver not initialized. Call connect() first.")
         return self._driver.session()
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator[AsyncManagedTransaction]:
+        """Get a transaction context manager.
+
+        Yields:
+            AsyncManagedTransaction: A managed transaction that auto-commits
+            on successful exit or rolls back on exception.
+
+        Example:
+            async with neo4j_driver.transaction() as tx:
+                await tx.run("CREATE (n:Node)")
+                await tx.run("CREATE (m:Node)")
+                # Auto-commits if no exception
+        """
+        async with self.session() as session:
+            async with session.begin_transaction() as tx:
+                yield tx
+                await tx.commit()
 
     async def __aenter__(self) -> Self:
         """Async context manager entry."""
