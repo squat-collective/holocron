@@ -2,18 +2,12 @@
 
 import json
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 from holocron.api.schemas.events import EntityType, EventAction, EventResponse
 from holocron.db.connection import neo4j_driver
-
-
-def _neo4j_datetime_to_python(dt: Any) -> datetime:
-    """Convert Neo4j DateTime to Python datetime."""
-    if hasattr(dt, "to_native"):
-        return cast(datetime, dt.to_native())
-    return cast(datetime, dt)
+from holocron.db.utils import neo4j_datetime_to_python
 
 
 def _node_to_event(node: dict[str, Any]) -> EventResponse:
@@ -32,7 +26,7 @@ def _node_to_event(node: dict[str, Any]) -> EventResponse:
         entity_type=EntityType(node["entity_type"]),
         entity_uid=node["entity_uid"],
         actor_uid=node.get("actor_uid"),
-        timestamp=_neo4j_datetime_to_python(node["timestamp"]),
+        timestamp=neo4j_datetime_to_python(node["timestamp"]),
         changes=changes,
         metadata=metadata,
     )

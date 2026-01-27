@@ -2,7 +2,7 @@
 
 import json
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 from holocron.api.schemas.relations import (
@@ -11,13 +11,7 @@ from holocron.api.schemas.relations import (
     RelationType,
 )
 from holocron.db.connection import neo4j_driver
-
-
-def _neo4j_datetime_to_python(dt: Any) -> datetime:
-    """Convert Neo4j DateTime to Python datetime."""
-    if hasattr(dt, "to_native"):
-        return cast(datetime, dt.to_native())
-    return cast(datetime, dt)
+from holocron.db.utils import neo4j_datetime_to_python, validate_relationship_type
 
 
 def _record_to_relation(record: dict[str, Any]) -> RelationResponse:
@@ -32,7 +26,7 @@ def _record_to_relation(record: dict[str, Any]) -> RelationResponse:
         to_uid=record["to_uid"],
         type=RelationType(record["type"]),
         properties=properties,
-        created_at=_neo4j_datetime_to_python(record["created_at"]),
+        created_at=neo4j_datetime_to_python(record["created_at"]),
     )
 
 
@@ -46,10 +40,8 @@ class RelationRepository:
         """
         uid = str(uuid4())
         now = datetime.now(UTC)
-        rel_type = relation.type.value.upper()  # owns -> OWNS
+        rel_type = validate_relationship_type(relation.type.value.upper())
 
-        # Use MATCH to find both nodes (can be Asset or Actor)
-        # Create the relationship with dynamic type using APOC or string interpolation
         query = f"""
             MATCH (from {{uid: $from_uid}})
             MATCH (to {{uid: $to_uid}})

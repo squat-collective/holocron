@@ -2,18 +2,12 @@
 
 import json
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 from holocron.api.schemas.assets import AssetCreate, AssetResponse, AssetType, AssetUpdate
 from holocron.db.connection import neo4j_driver
-
-
-def _neo4j_datetime_to_python(dt: Any) -> datetime:
-    """Convert Neo4j DateTime to Python datetime."""
-    if hasattr(dt, "to_native"):
-        return cast(datetime, dt.to_native())
-    return cast(datetime, dt)
+from holocron.db.utils import neo4j_datetime_to_python, validate_node_label
 
 
 def _node_to_asset(node: dict[str, Any]) -> AssetResponse:
@@ -30,8 +24,8 @@ def _node_to_asset(node: dict[str, Any]) -> AssetResponse:
         location=node.get("location"),
         status=node["status"],
         metadata=metadata,
-        created_at=_neo4j_datetime_to_python(node["created_at"]),
-        updated_at=_neo4j_datetime_to_python(node["updated_at"]),
+        created_at=neo4j_datetime_to_python(node["created_at"]),
+        updated_at=neo4j_datetime_to_python(node["updated_at"]),
     )
 
 
@@ -42,7 +36,7 @@ class AssetRepository:
         """Create a new asset in Neo4j."""
         uid = str(uuid4())
         now = datetime.now(UTC)
-        label = asset.type.value.capitalize()  # dataset -> Dataset
+        label = validate_node_label(asset.type.value.capitalize())
 
         query = f"""
             CREATE (a:Asset:{label} {{

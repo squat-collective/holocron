@@ -2,18 +2,12 @@
 
 import json
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 from holocron.api.schemas.actors import ActorCreate, ActorResponse, ActorType, ActorUpdate
 from holocron.db.connection import neo4j_driver
-
-
-def _neo4j_datetime_to_python(dt: Any) -> datetime:
-    """Convert Neo4j DateTime to Python datetime."""
-    if hasattr(dt, "to_native"):
-        return cast(datetime, dt.to_native())
-    return cast(datetime, dt)
+from holocron.db.utils import neo4j_datetime_to_python, validate_node_label
 
 
 def _node_to_actor(node: dict[str, Any]) -> ActorResponse:
@@ -29,8 +23,8 @@ def _node_to_actor(node: dict[str, Any]) -> ActorResponse:
         email=node.get("email"),
         description=node.get("description"),
         metadata=metadata,
-        created_at=_neo4j_datetime_to_python(node["created_at"]),
-        updated_at=_neo4j_datetime_to_python(node["updated_at"]),
+        created_at=neo4j_datetime_to_python(node["created_at"]),
+        updated_at=neo4j_datetime_to_python(node["updated_at"]),
     )
 
 
@@ -41,7 +35,7 @@ class ActorRepository:
         """Create a new actor in Neo4j."""
         uid = str(uuid4())
         now = datetime.now(UTC)
-        label = actor.type.value.capitalize()  # person -> Person
+        label = validate_node_label(actor.type.value.capitalize())
 
         query = f"""
             CREATE (a:Actor:{label} {{
