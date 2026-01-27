@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Self
 
-from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction, AsyncSession
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession, AsyncTransaction
 
 from holocron.config import settings
 
@@ -44,11 +44,11 @@ class Neo4jDriver:
         return self._driver.session()
 
     @asynccontextmanager
-    async def transaction(self) -> AsyncIterator[AsyncManagedTransaction]:
+    async def transaction(self) -> AsyncIterator[AsyncTransaction]:
         """Get a transaction context manager.
 
         Yields:
-            AsyncManagedTransaction: A managed transaction that auto-commits
+            AsyncTransaction: A transaction that auto-commits
             on successful exit or rolls back on exception.
 
         Example:
@@ -58,9 +58,13 @@ class Neo4jDriver:
                 # Auto-commits if no exception
         """
         async with self.session() as session:
-            async with session.begin_transaction() as tx:
+            tx = await session.begin_transaction()
+            try:
                 yield tx
                 await tx.commit()
+            except Exception:
+                await tx.rollback()
+                raise
 
     async def __aenter__(self) -> Self:
         """Async context manager entry."""

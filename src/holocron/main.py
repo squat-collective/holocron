@@ -55,12 +55,12 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # Add rate limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 
 # Custom exception handlers for consistent error responses
 @app.exception_handler(NotFoundError)
-async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
+async def not_found_handler(_request: Request, exc: NotFoundError) -> JSONResponse:
     """Handle NotFoundError with 404 response."""
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -69,7 +69,7 @@ async def not_found_handler(request: Request, exc: NotFoundError) -> JSONRespons
 
 
 @app.exception_handler(DuplicateError)
-async def duplicate_handler(request: Request, exc: DuplicateError) -> JSONResponse:
+async def duplicate_handler(_request: Request, exc: DuplicateError) -> JSONResponse:
     """Handle DuplicateError with 409 response."""
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
@@ -78,7 +78,7 @@ async def duplicate_handler(request: Request, exc: DuplicateError) -> JSONRespon
 
 
 @app.exception_handler(ValidationError)
-async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
+async def validation_handler(_request: Request, exc: ValidationError) -> JSONResponse:
     """Handle ValidationError with 422 response."""
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -87,7 +87,7 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
 
 
 @app.exception_handler(DatabaseError)
-async def database_handler(request: Request, exc: DatabaseError) -> JSONResponse:
+async def database_handler(_request: Request, _exc: DatabaseError) -> JSONResponse:
     """Handle DatabaseError with 503 response."""
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -96,7 +96,7 @@ async def database_handler(request: Request, exc: DatabaseError) -> JSONResponse
 
 
 @app.exception_handler(HolocronError)
-async def holocron_handler(request: Request, exc: HolocronError) -> JSONResponse:
+async def holocron_handler(_request: Request, exc: HolocronError) -> JSONResponse:
     """Handle generic HolocronError with 500 response."""
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -14,7 +14,7 @@ def setup_logging() -> None:
     log levels, and module information.
     """
     # Determine log level from settings or default to INFO
-    log_level = logging.DEBUG if settings.debug else logging.INFO
+    log_level = logging.DEBUG if settings.api_debug else logging.INFO
 
     # Create formatter with structured output
     formatter = logging.Formatter(

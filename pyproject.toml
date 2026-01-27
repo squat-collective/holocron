@@ -51,6 +51,7 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 disallow_any_generics = true
 ignore_missing_imports = true
+disallow_untyped_decorators = false  # Allow untyped decorators (slowapi, etc.)
 
 [tool.ruff]
 target-version = "py312"
@@ -72,6 +73,7 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # function call in default argument (common FastAPI pattern for Query/Depends)
     "B024",   # abstract base class without abstract methods (stubs are OK)
+    "ARG001", # unused arguments (common with FastAPI decorators like slowapi limiter)
 ]
 
 [tool.ruff.lint.isort]
