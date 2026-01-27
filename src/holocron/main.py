@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from holocron.api.routes import actors, assets, events, health, relations
 from holocron.db.connection import neo4j_driver
+from holocron.db.init import init_constraints
 
 
 @asynccontextmanager
@@ -14,6 +15,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler."""
     # Startup
     await neo4j_driver.connect()
+    await init_constraints()
     yield
     # Shutdown
     await neo4j_driver.disconnect()
