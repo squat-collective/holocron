@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs shell test lint format typecheck check clean
+.PHONY: help build up down restart logs shell test lint format typecheck check clean openapi
 
 # Default target
 .DEFAULT_GOAL := help
@@ -88,6 +88,21 @@ local-typecheck: ## Run type checker locally
 	mypy src/
 
 local-check: local-lint local-typecheck local-test ## Run all checks locally
+
+##@ Documentation
+
+openapi: ## Generate OpenAPI spec (docs/openapi.json)
+	@echo "$(CYAN)Generating OpenAPI spec...$(RESET)"
+	@mkdir -p docs
+	@$(CONTAINER_RUNTIME) run --rm -v $(PWD):/app -w /app \
+		-e NEO4J_URI=bolt://localhost:7687 \
+		-e NEO4J_USER=neo4j \
+		-e NEO4J_PASSWORD=dummy \
+		python:3.12-slim sh -c "\
+		pip install -q uv && \
+		uv pip install --system -q -e . && \
+		python -c \"import json; from holocron.main import app; print(json.dumps(app.openapi(), indent=2))\" > docs/openapi.json"
+	@echo "$(GREEN)✓ Generated docs/openapi.json$(RESET)"
 
 ##@ Utilities
 
