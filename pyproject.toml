@@ -1,0 +1,32 @@
+[project]
+name = "holocron-monorepo"
+version = "0.1.0"
+description = "Holocron monorepo root — uv workspace anchor"
+requires-python = ">=3.12"
+
+[tool.uv.workspace]
+members = [
+    "packages/api",
+    "packages/holocron-plugin-sdk",
+    "packages/connector-excel",
+    "packages/connector-csv",
+    "packages/exporter-excel",
+    "packages/exporter-markdown",
+    "packages/audit-lineage-gaps",
+    "packages/compliance-report",
+    "packages/pii-detector",
+    "packages/connector-postgres",
+    "packages/connector-powerbi",
+]
+
+[tool.uv.sources]
+holocron-plugin-sdk = { workspace = true }
+excel-connector = { workspace = true }
+excel-exporter = { workspace = true }
+csv-connector = { workspace = true }
+data-dictionary-markdown = { workspace = true }
+lineage-gap-audit = { workspace = true }
+compliance-report = { workspace = true }
+pii-detector = { workspace = true }
+postgres-connector = { workspace = true }
+powerbi-connector = { workspace = true }

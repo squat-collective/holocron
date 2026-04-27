@@ -1,0 +1,35 @@
+{
+	"$schema": "https://typedoc.org/schema.json",
+	"entryPoints": ["src/index.ts"],
+	"out": "docs-dist",
+	"name": "Holocron TypeScript SDK",
+	"readme": "docs/index.md",
+	"navigationLinks": {
+		"GitHub": "https://github.com/squat-collective/holocron/tree/main/packages/sdk-ts",
+		"Holocron": "https://github.com/squat-collective/holocron"
+	},
+	"includeVersion": true,
+	"categorizeByGroup": true,
+	"categoryOrder": ["Client", "Types", "*"],
+	"exclude": ["**/types/api.ts"],
+	"excludePrivate": true,
+	"excludeInternal": true,
+	"githubPages": false,
+	"searchInComments": true,
+	"cleanOutputDir": true,
+	"navigation": {
+		"includeCategories": true,
+		"includeGroups": true,
+		"includeFolders": false
+	},
+	"visibilityFilters": {
+		"protected": false,
+		"private": false,
+		"inherited": true,
+		"external": false
+	},
+	"sourceLinkTemplate": "https://github.com/squat-collective/holocron/blob/main/packages/sdk-ts/{path}#L{line}",
+	"disableSources": false,
+	"includeHierarchySummary": true,
+	"plugin": ["typedoc-plugin-mdn-links"]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "holocron-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Holocron monorepo: API (Python), TypeScript SDK, and Web UI",
+  "workspaces": [
+    "packages/sdk-ts",
+    "packages/ui",
+    "packages/mcp-server",
+    "packages/docs-site"
+  ],
+  "scripts": {
+    "dev:ui": "bun --filter holocron-portal dev",
+    "dev:docs": "bun --filter holocron-docs-site dev",
+    "build:sdk": "bun --filter @squat-collective/holocron-ts build",
+    "build:ui": "bun --filter holocron-portal build",
+    "build:docs": "bun --filter holocron-docs-site build",
+    "build": "bun run build:sdk && bun run build:ui",
+    "typecheck": "bun --filter '*' typecheck",
+    "lint": "bun --filter '*' lint",
+    "format": "bun --filter '*' format"
+  },
+  "packageManager": "bun@1.1.0"
+}

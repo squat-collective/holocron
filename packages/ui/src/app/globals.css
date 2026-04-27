@@ -1,0 +1,354 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Holocron galaxy theme
+ * ----------------------
+ * Light mode = "dawn sky" — pale lavender warmth, deep cosmic primary.
+ * Dark mode  = "deep space" — near-black with a violet cast, starlight text,
+ * aurora-violet primary. The animated starfield lives behind everything and
+ * reads through the gutter space between cards.
+ */
+
+:root {
+  --radius: 0.625rem;
+
+  /* Background: very pale lavender, almost white */
+  --background: oklch(0.99 0.008 285);
+  --foreground: oklch(0.17 0.025 275);
+
+  /* Surfaces */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.025 275);
+  --popover: oklch(0.995 0.005 285);
+  --popover-foreground: oklch(0.17 0.025 275);
+
+  /* Primary = cosmic violet */
+  --primary: oklch(0.52 0.22 285);
+  --primary-foreground: oklch(0.985 0 0);
+
+  --secondary: oklch(0.95 0.015 285);
+  --secondary-foreground: oklch(0.25 0.04 275);
+  --muted: oklch(0.96 0.012 285);
+  --muted-foreground: oklch(0.5 0.03 275);
+  --accent: oklch(0.93 0.03 295);
+  --accent-foreground: oklch(0.22 0.04 275);
+
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.9 0.015 285);
+  --input: oklch(0.9 0.015 285);
+  --ring: oklch(0.6 0.2 285);
+
+  --chart-1: oklch(0.55 0.22 285); /* violet */
+  --chart-2: oklch(0.7 0.17 200);  /* cyan */
+  --chart-3: oklch(0.65 0.2 340);  /* magenta */
+  --chart-4: oklch(0.8 0.18 85);   /* gold */
+  --chart-5: oklch(0.62 0.19 150); /* emerald */
+
+  --sidebar: oklch(0.98 0.012 285);
+  --sidebar-foreground: oklch(0.17 0.025 275);
+  --sidebar-primary: oklch(0.52 0.22 285);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.94 0.02 290);
+  --sidebar-accent-foreground: oklch(0.22 0.04 275);
+  --sidebar-border: oklch(0.9 0.015 285);
+  --sidebar-ring: oklch(0.6 0.2 285);
+
+  /* Relation palette — one colour per relation type. Used everywhere
+     (cards, chips, lineage edges, legend) so the visual language stays
+     consistent. Pair with opacity modifiers for soft backgrounds. */
+  --relation-owns: oklch(0.72 0.19 149);         /* green */
+  --relation-uses: oklch(0.72 0.11 195);         /* cyan */
+  --relation-feeds: oklch(0.68 0.17 237);        /* sky */
+  --relation-contains: oklch(0.67 0.29 322);     /* fuchsia */
+  --relation-member-of: oklch(0.70 0.14 183);    /* teal */
+  --relation-applies-to: oklch(0.72 0.20 340);   /* magenta */
+
+  /* Asset palette — one colour per asset type. */
+  --asset-dataset: oklch(0.70 0.17 162); /* emerald */
+  --asset-report: oklch(0.77 0.19 71);   /* amber */
+  --asset-process: oklch(0.63 0.22 304); /* purple */
+  --asset-system: oklch(0.55 0.03 257);  /* slate */
+
+  /* Actor palette — one colour per actor type. */
+  --actor-person: oklch(0.62 0.19 259); /* blue */
+  --actor-group: oklch(0.58 0.24 275);  /* indigo */
+
+  /* Rule severity palette. */
+  --severity-info: oklch(0.68 0.17 237);   /* sky */
+  --severity-warning: oklch(0.77 0.19 71); /* amber */
+  --severity-critical: oklch(0.63 0.25 25); /* red */
+
+  /* Enforcement tier palette. */
+  --enforcement-enforced: oklch(0.72 0.19 149);  /* green */
+  --enforcement-alerting: oklch(0.77 0.19 71);   /* amber */
+  --enforcement-documented: oklch(0.5 0.03 275); /* muted */
+
+  /* Starlight gold — matches the warm bulge hue (hsl 25–55) used by the
+     galaxy background. Used to highlight "the main node" visually. */
+  --star-gold: oklch(0.78 0.14 82);
+}
+
+.dark {
+  /* Deep space: near-black with a violet cast */
+  --background: oklch(0.11 0.025 275);
+  --foreground: oklch(0.96 0.012 285);
+
+  /* Surfaces sit slightly above the void, with a subtle violet haze */
+  --card: oklch(0.17 0.03 275);
+  --card-foreground: oklch(0.96 0.012 285);
+  --popover: oklch(0.19 0.035 275);
+  --popover-foreground: oklch(0.96 0.012 285);
+
+  /* Primary = aurora violet */
+  --primary: oklch(0.72 0.22 290);
+  --primary-foreground: oklch(0.12 0.03 275);
+
+  --secondary: oklch(0.22 0.035 275);
+  --secondary-foreground: oklch(0.96 0.012 285);
+  --muted: oklch(0.22 0.035 275);
+  --muted-foreground: oklch(0.72 0.04 280);
+  --accent: oklch(0.27 0.06 295);
+  --accent-foreground: oklch(0.96 0.012 285);
+
+  --destructive: oklch(0.7 0.19 22);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.72 0.22 290);
+
+  --chart-1: oklch(0.72 0.22 290); /* violet */
+  --chart-2: oklch(0.78 0.16 195); /* cyan */
+  --chart-3: oklch(0.72 0.22 340); /* magenta */
+  --chart-4: oklch(0.82 0.18 85);  /* gold */
+  --chart-5: oklch(0.75 0.18 150); /* emerald */
+
+  --sidebar: oklch(0.14 0.03 275);
+  --sidebar-foreground: oklch(0.96 0.012 285);
+  --sidebar-primary: oklch(0.72 0.22 290);
+  --sidebar-primary-foreground: oklch(0.12 0.03 275);
+  --sidebar-accent: oklch(0.22 0.04 275);
+  --sidebar-accent-foreground: oklch(0.96 0.012 285);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.72 0.22 290);
+
+  /* Relation palette — slightly brighter in dark mode so chips and edges
+     keep contrast against deep-space backgrounds. */
+  --relation-owns: oklch(0.78 0.19 149);
+  --relation-uses: oklch(0.80 0.12 195);
+  --relation-feeds: oklch(0.78 0.17 237);
+  --relation-contains: oklch(0.77 0.26 322);
+  --relation-member-of: oklch(0.78 0.14 183);
+  --relation-applies-to: oklch(0.78 0.22 340);
+
+  /* Asset / actor / rule palettes — brighter in dark mode. */
+  --asset-dataset: oklch(0.78 0.17 162);
+  --asset-report: oklch(0.83 0.18 71);
+  --asset-process: oklch(0.74 0.22 304);
+  --asset-system: oklch(0.72 0.03 257);
+
+  --actor-person: oklch(0.72 0.19 259);
+  --actor-group: oklch(0.70 0.24 275);
+
+  --severity-info: oklch(0.78 0.17 237);
+  --severity-warning: oklch(0.83 0.18 71);
+  --severity-critical: oklch(0.72 0.24 25);
+
+  --enforcement-enforced: oklch(0.78 0.19 149);
+  --enforcement-alerting: oklch(0.83 0.18 71);
+  --enforcement-documented: oklch(0.72 0.04 280);
+
+  /* Starlight gold — brighter in dark mode so it glows like a real star. */
+  --star-gold: oklch(0.88 0.16 85);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Relation tokens — lets Tailwind emit `bg-relation-owns`,
+     `border-relation-uses/30`, `text-relation-feeds`, etc. */
+  --color-relation-owns: var(--relation-owns);
+  --color-relation-uses: var(--relation-uses);
+  --color-relation-feeds: var(--relation-feeds);
+  --color-relation-contains: var(--relation-contains);
+  --color-relation-member-of: var(--relation-member-of);
+  --color-relation-applies-to: var(--relation-applies-to);
+
+  /* Asset / actor / rule node tokens. */
+  --color-asset-dataset: var(--asset-dataset);
+  --color-asset-report: var(--asset-report);
+  --color-asset-process: var(--asset-process);
+  --color-asset-system: var(--asset-system);
+
+  --color-actor-person: var(--actor-person);
+  --color-actor-group: var(--actor-group);
+
+  --color-severity-info: var(--severity-info);
+  --color-severity-warning: var(--severity-warning);
+  --color-severity-critical: var(--severity-critical);
+
+  --color-enforcement-enforced: var(--enforcement-enforced);
+  --color-enforcement-alerting: var(--enforcement-alerting);
+  --color-enforcement-documented: var(--enforcement-documented);
+
+  --color-star-gold: var(--star-gold);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/*
+ * Nebula — soft radial smudges that drift *very* slowly. They sit inside
+ * the fixed GalaxyBackground wrapper and only render on top of whatever
+ * solid background the theme provides, giving depth to the starfield.
+ */
+.nebula {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  mix-blend-mode: screen;
+  will-change: transform;
+  animation: nebula-drift 60s ease-in-out infinite alternate;
+}
+
+.nebula-1 {
+  top: -20vmax;
+  left: -15vmax;
+  background: radial-gradient(
+    circle,
+    oklch(0.55 0.3 290 / 0.5) 0%,
+    transparent 70%
+  );
+  animation-duration: 55s;
+}
+
+.nebula-2 {
+  bottom: -25vmax;
+  right: -15vmax;
+  background: radial-gradient(
+    circle,
+    oklch(0.6 0.25 330 / 0.4) 0%,
+    transparent 70%
+  );
+  animation-duration: 75s;
+  animation-delay: -20s;
+}
+
+.nebula-3 {
+  top: 20vmax;
+  right: -25vmax;
+  background: radial-gradient(
+    circle,
+    oklch(0.6 0.22 220 / 0.35) 0%,
+    transparent 70%
+  );
+  animation-duration: 90s;
+  animation-delay: -40s;
+}
+
+/* Light mode gets a softer nebula so the backdrop doesn't swamp the text. */
+:root:not(.dark) .nebula {
+  opacity: 0.18;
+  mix-blend-mode: multiply;
+}
+
+@keyframes nebula-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4vmax, -3vmax, 0) scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nebula {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   Galaxy map — CSS2D node labels rendered by three.js's CSS2DRenderer over
+   the WebGL canvas. Visibility is driven per-node from the rAF loop in
+   galaxy-map.tsx via three.js's `object.visible`, which sets `display:none`
+   on the wrapper element — so we don't need tier-class CSS rules.
+
+   No `backdrop-filter` — every blurred element triggers its own GPU
+   compositing layer; with hundreds of labels that's the main lag culprit.
+   ========================================================================== */
+.galaxy-label {
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  font-family: var(--font-geist), system-ui, sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(10, 12, 24, 0.85);
+  border: 1px solid rgba(120, 120, 200, 0.22);
+  color: rgb(226 232 240);
+  transform: translate(-50%, 0);
+  will-change: opacity;
+  opacity: 0.92;
+  transition: opacity 220ms ease-out;
+}
+/* Out of the focused cluster → soften but stay readable so the
+   surrounding galaxy keeps its spatial context. */
+.galaxy-label-dim {
+  opacity: 0.35;
+}
+.galaxy-label-icon {
+  display: inline-flex;
+  width: 11px;
+  height: 11px;
+}

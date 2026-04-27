@@ -1,0 +1,24 @@
+services:
+  dev:
+    image: docker.io/oven/bun:1
+    working_dir: /app
+    volumes:
+      - .:/app
+    networks:
+      - holocron
+    environment:
+      - HOLOCRON_URL=http://holocron:8000
+    command: sleep infinity
+
+  docs:
+    image: docker.io/oven/bun:1
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+    command: bunx serve docs-dist -l 3000
+
+networks:
+  holocron:
+    external: true

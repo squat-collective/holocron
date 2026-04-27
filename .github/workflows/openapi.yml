@@ -1,0 +1,41 @@
+name: Generate OpenAPI Spec
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/api/src/holocron/**'
+      - 'packages/api/pyproject.toml'
+
+jobs:
+  generate-openapi:
+    runs-on: ubuntu-latest
+    # Skip if triggered by the bot's own commit
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate OpenAPI spec
+        run: make openapi
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet docs/openapi.json 2>/dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/openapi.json
+          git commit -m "docs: update OpenAPI spec [skip ci]"
+          git push

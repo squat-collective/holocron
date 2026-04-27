@@ -1,0 +1,39 @@
+name: holocron
+
+# Caddy overlay — exposes Holocron on a single host port (or a real domain
+# with auto-HTTPS) instead of separate UI/API/Neo4j ports.
+#
+# Use with the base compose:
+#   docker compose -f compose.prod.yml -f compose.prod.caddy.yml up -d
+#
+# Notes:
+#  - The base compose still publishes UI/API/Neo4j on host ports. To keep them
+#    LAN-private, override their `ports:` to bind to 127.0.0.1 in your own
+#    `compose.override.yml`, or remove them — Caddy talks to them over the
+#    `holocron` network, not via host ports.
+#  - HOLOCRON_DOMAIN=":80" runs HTTP only. Set a real domain (e.g.
+#    holocron.example.com) to get auto-HTTPS via Let's Encrypt.
+#  - Optional basic auth: edit the Caddyfile and uncomment the basic_auth block.
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    environment:
+      - HOLOCRON_DOMAIN=${HOLOCRON_DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - ui
+      - api
+    networks:
+      - holocron
+
+volumes:
+  caddy_data:
+  caddy_config:

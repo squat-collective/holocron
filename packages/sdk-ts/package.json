@@ -1,0 +1,57 @@
+{
+  "name": "@squat-collective/holocron-ts",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Holocron API",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/squat-collective/holocron.git",
+    "directory": "packages/sdk-ts"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build ./src/index.ts --outdir ./dist --target node && tsc -p tsconfig.build.json",
+    "test": "bun test",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit",
+    "generate-types": "openapi-typescript openapi.json -o src/types/api.ts",
+    "docs": "typedoc",
+    "docs:serve": "typedoc && cd docs-dist && python3 -m http.server 3000",
+    "prepublishOnly": "bun run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "^1.1.0",
+    "openapi-typescript": "^7.0.0",
+    "typedoc": "^0.27.0",
+    "typedoc-plugin-mdn-links": "^4.0.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.12.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "holocron": {
+    "apiVersions": ["v1"],
+    "defaultApiVersion": "v1"
+  }
+}

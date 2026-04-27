@@ -1,0 +1,5 @@
+# Copy to `.npmrc` (which is gitignored) when you need to publish or pull
+# private packages from GitHub Packages. Replace ${NODE_AUTH_TOKEN} with a
+# real token in your shell, never inline it here.
+@squat-collective:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}

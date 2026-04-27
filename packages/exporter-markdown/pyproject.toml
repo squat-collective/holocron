@@ -1,0 +1,62 @@
+[project]
+name = "data-dictionary-markdown"
+version = "0.1.0"
+description = "Export the Holocron catalog as a zip of Markdown data-dictionary pages"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Tom" }]
+keywords = ["data-governance", "markdown", "data-dictionary", "holocron"]
+
+dependencies = [
+    "pydantic>=2.10.0",
+    "holocron-plugin-sdk>=0.1.0",
+]
+
+[tool.uv.sources]
+holocron-plugin-sdk = { path = "../holocron-plugin-sdk", editable = true }
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "mypy>=1.13.0",
+    "ruff>=0.8.0",
+]
+
+[project.entry-points."holocron.plugins"]
+data-dictionary-markdown = "data_dictionary_markdown.plugin"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/data_dictionary_markdown"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_any_generics = true
+ignore_missing_imports = true
+disallow_untyped_decorators = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "ARG", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["data_dictionary_markdown"]

@@ -1,0 +1,108 @@
+name: holocron
+
+services:
+  neo4j:
+    image: neo4j:5
+    ports:
+      - "7474:7474"  # Browser UI
+      - "7687:7687"  # Bolt protocol
+    environment:
+      - NEO4J_AUTH=neo4j/holocron
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+    networks:
+      - holocron
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+      args:
+        # Bake pytest/mypy/ruff into the dev image so `make api-test` etc.
+        # work inside the container. Released GHCR images skip this.
+        INSTALL_EXTRAS: "[dev]"
+    container_name: holocron
+    ports:
+      - "8100:8000"  # host 8100 → container 8000 (8000 collides with kinori)
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=holocron
+      - API_DEBUG=true
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    networks:
+      - holocron
+    volumes:
+      - ./packages/api/src:/app/src
+      - ./packages/api/plugins:/app/plugins
+      - ./packages/api/tests:/app/tests
+      - ./packages/api/pyproject.toml:/app/pyproject.toml
+      - ./packages/holocron-plugin-sdk:/opt/holocron-plugin-sdk
+      - ./packages/connector-excel:/opt/connector-excel
+      - ./packages/exporter-excel:/opt/exporter-excel
+      - ./packages/connector-csv:/opt/connector-csv
+      - ./packages/exporter-markdown:/opt/exporter-markdown
+      - ./packages/audit-lineage-gaps:/opt/audit-lineage-gaps
+      - ./packages/compliance-report:/opt/compliance-report
+      - ./packages/pii-detector:/opt/pii-detector
+      - ./packages/connector-postgres:/opt/connector-postgres
+      - ./packages/connector-powerbi:/opt/connector-powerbi
+    develop:
+      watch:
+        - action: sync
+          path: ./packages/api/src
+          target: /app/src
+        - action: rebuild
+          path: ./packages/api/pyproject.toml
+
+  ui:
+    image: oven/bun:1
+    container_name: holocron-ui
+    working_dir: /app
+    command: sh -c "bun install && bun run dev:ui --hostname 0.0.0.0"
+    ports:
+      - "3333:3000"
+    environment:
+      - HOLOCRON_API_URL=http://api:8000
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+      - ui_node_modules:/app/node_modules
+      - ui_packages_node_modules:/app/packages/ui/node_modules
+      - ui_sdk_node_modules:/app/packages/sdk-ts/node_modules
+    depends_on:
+      - api
+    networks:
+      - holocron
+    # Resource caps — `bun run typecheck` + Next.js dev compile can balloon
+    # RAM and pin every core. Cap both so the host stays responsive; 6 GB is
+    # enough for dev work including React Flow / big compiles without
+    # getting OOM-killed.
+    mem_limit: 6g
+    memswap_limit: 6g
+    cpus: "2"
+    pids_limit: 512
+
+networks:
+  holocron:
+    name: holocron
+    driver: bridge
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  ui_node_modules:
+  ui_packages_node_modules:
+  ui_sdk_node_modules:

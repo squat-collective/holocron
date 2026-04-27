@@ -1,0 +1,345 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Holocron docs theme
+ * --------------------
+ * Mirrors the portal's galaxy palette so the two surfaces feel like one
+ * product. Dark = "deep space" (default for first paint to avoid flash);
+ * light = "dawn sky" — pale lavender warmth, deep cosmic primary.
+ */
+
+:root {
+	--radius: 0.625rem;
+
+	--background: oklch(0.99 0.008 285);
+	--foreground: oklch(0.17 0.025 275);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.17 0.025 275);
+	--popover: oklch(0.995 0.005 285);
+	--popover-foreground: oklch(0.17 0.025 275);
+	--primary: oklch(0.52 0.22 285);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.95 0.015 285);
+	--secondary-foreground: oklch(0.25 0.04 275);
+	--muted: oklch(0.96 0.012 285);
+	--muted-foreground: oklch(0.5 0.03 275);
+	--accent: oklch(0.93 0.03 295);
+	--accent-foreground: oklch(0.22 0.04 275);
+	--destructive: oklch(0.58 0.22 25);
+	--border: oklch(0.9 0.015 285);
+	--input: oklch(0.9 0.015 285);
+	--ring: oklch(0.6 0.2 285);
+	--star-gold: oklch(0.78 0.14 82);
+}
+
+.dark {
+	--background: oklch(0.11 0.025 275);
+	--foreground: oklch(0.96 0.012 285);
+	--card: oklch(0.17 0.03 275);
+	--card-foreground: oklch(0.96 0.012 285);
+	--popover: oklch(0.15 0.03 275);
+	--popover-foreground: oklch(0.96 0.012 285);
+	--primary: oklch(0.72 0.21 295);
+	--primary-foreground: oklch(0.11 0.025 275);
+	--secondary: oklch(0.21 0.04 275);
+	--secondary-foreground: oklch(0.96 0.012 285);
+	--muted: oklch(0.19 0.03 275);
+	--muted-foreground: oklch(0.7 0.04 285);
+	--accent: oklch(0.27 0.06 290);
+	--accent-foreground: oklch(0.96 0.012 285);
+	--destructive: oklch(0.7 0.22 25);
+	--border: oklch(0.27 0.04 275);
+	--input: oklch(0.27 0.04 275);
+	--ring: oklch(0.72 0.21 295);
+	--star-gold: oklch(0.82 0.14 82);
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-star-gold: var(--star-gold);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* {
+	border-color: var(--border);
+}
+
+/* Base color lives on <html> so the GalaxyBackground (a -z-10 fixed div
+ * inside <body>) can paint over it without fighting body's own background
+ * — some browsers paint body's bg above negative-z-index children. */
+html {
+	background: var(--background);
+	color: var(--foreground);
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+body {
+	background: transparent;
+	color: var(--foreground);
+}
+
+/* Stop FOUC of the dark default while next-themes hydrates */
+html.dark {
+	color-scheme: dark;
+}
+
+/* ---------- Markdown content ----------------------------------------- */
+
+.prose-holo {
+	color: var(--foreground);
+	line-height: 1.7;
+	max-width: 72ch;
+}
+.prose-holo > * + * {
+	margin-top: 1rem;
+}
+.prose-holo h1 {
+	font-size: 2.25rem;
+	font-weight: 600;
+	margin-top: 0;
+	letter-spacing: -0.02em;
+	color: var(--foreground);
+}
+.prose-holo h2 {
+	font-size: 1.5rem;
+	font-weight: 600;
+	margin-top: 2.5rem;
+	letter-spacing: -0.01em;
+	color: var(--foreground);
+	scroll-margin-top: 5rem;
+}
+.prose-holo h3 {
+	font-size: 1.15rem;
+	font-weight: 600;
+	margin-top: 2rem;
+	color: var(--foreground);
+	scroll-margin-top: 5rem;
+}
+.prose-holo h4 {
+	font-size: 1rem;
+	font-weight: 600;
+	margin-top: 1.5rem;
+	color: var(--foreground);
+	scroll-margin-top: 5rem;
+}
+.prose-holo p {
+	color: var(--foreground);
+}
+.prose-holo a {
+	color: var(--primary);
+	text-decoration: none;
+	border-bottom: 1px solid color-mix(in oklch, var(--primary) 30%, transparent);
+	transition: border-color 0.15s;
+}
+.prose-holo a:hover {
+	border-bottom-color: var(--primary);
+}
+.prose-holo strong {
+	color: var(--foreground);
+	font-weight: 600;
+}
+.prose-holo blockquote {
+	border-left: 3px solid var(--primary);
+	padding-left: 1rem;
+	color: var(--muted-foreground);
+	font-style: italic;
+}
+.prose-holo ul,
+.prose-holo ol {
+	padding-left: 1.4rem;
+}
+.prose-holo ul {
+	list-style: disc;
+}
+.prose-holo ol {
+	list-style: decimal;
+}
+.prose-holo li + li {
+	margin-top: 0.4rem;
+}
+.prose-holo code {
+	background: color-mix(in oklch, var(--accent) 60%, transparent);
+	color: var(--foreground);
+	padding: 0.1rem 0.35rem;
+	border-radius: 0.3rem;
+	font-size: 0.85em;
+	font-family: var(--font-mono);
+}
+.prose-holo pre {
+	background: color-mix(in oklch, var(--card) 80%, transparent);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 1rem 1.1rem;
+	overflow-x: auto;
+	font-size: 0.85em;
+	line-height: 1.55;
+	box-shadow: 0 1px 0 color-mix(in oklch, var(--ring) 8%, transparent);
+}
+.prose-holo pre code {
+	background: transparent;
+	padding: 0;
+	border-radius: 0;
+	font-size: inherit;
+}
+.prose-holo table {
+	width: 100%;
+	border-collapse: collapse;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	overflow: hidden;
+	font-size: 0.92em;
+}
+.prose-holo th,
+.prose-holo td {
+	padding: 0.55rem 0.85rem;
+	text-align: left;
+	border-bottom: 1px solid var(--border);
+	vertical-align: top;
+}
+.prose-holo th {
+	background: color-mix(in oklch, var(--accent) 40%, transparent);
+	font-weight: 600;
+}
+.prose-holo tr:last-child td {
+	border-bottom: 0;
+}
+.prose-holo hr {
+	border: 0;
+	border-top: 1px solid var(--border);
+	margin: 2rem 0;
+}
+.prose-holo img {
+	border-radius: var(--radius);
+	border: 1px solid var(--border);
+	max-width: 100%;
+}
+
+/* Anchored heading links (added by rehype-autolink-headings, behavior: append) */
+.prose-holo .anchor {
+	margin-left: 0.4rem;
+	opacity: 0;
+	color: var(--primary);
+	border-bottom: 0;
+	transition: opacity 0.15s;
+}
+.prose-holo h1:hover .anchor,
+.prose-holo h2:hover .anchor,
+.prose-holo h3:hover .anchor,
+.prose-holo h4:hover .anchor {
+	opacity: 1;
+}
+
+/* Shiki two-theme support (rehype-pretty-code injects both palettes) */
+html.dark .prose-holo pre [data-line] {
+	color: var(--shiki-dark);
+}
+html.dark .prose-holo pre {
+	background: color-mix(in oklch, var(--background) 60%, var(--card) 40%);
+}
+html:not(.dark) .prose-holo pre [data-line] {
+	color: var(--shiki-light);
+}
+.prose-holo [data-rehype-pretty-code-figure] {
+	margin: 1rem 0;
+}
+
+/* Fancy focus rings (matches portal) */
+*:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+/* ---------- Nebula clouds (used by GalaxyBackground) ----------------- */
+
+.nebula {
+	position: absolute;
+	width: 60vmax;
+	height: 60vmax;
+	border-radius: 50%;
+	filter: blur(80px);
+	opacity: 0.35;
+	mix-blend-mode: screen;
+	will-change: transform;
+	animation: nebula-drift 60s ease-in-out infinite alternate;
+}
+
+.nebula-1 {
+	top: -20vmax;
+	left: -15vmax;
+	background: radial-gradient(
+		circle,
+		oklch(0.55 0.3 290 / 0.5) 0%,
+		transparent 70%
+	);
+	animation-duration: 55s;
+}
+
+.nebula-2 {
+	bottom: -25vmax;
+	right: -15vmax;
+	background: radial-gradient(
+		circle,
+		oklch(0.6 0.25 330 / 0.4) 0%,
+		transparent 70%
+	);
+	animation-duration: 75s;
+	animation-delay: -20s;
+}
+
+.nebula-3 {
+	top: 20vmax;
+	right: -25vmax;
+	background: radial-gradient(
+		circle,
+		oklch(0.6 0.22 220 / 0.35) 0%,
+		transparent 70%
+	);
+	animation-duration: 90s;
+	animation-delay: -40s;
+}
+
+/* Light mode gets a softer nebula so the backdrop doesn't swamp the text. */
+:root:not(.dark) .nebula {
+	opacity: 0.18;
+	mix-blend-mode: multiply;
+}
+
+@keyframes nebula-drift {
+	from {
+		transform: translate3d(0, 0, 0) scale(1);
+	}
+	to {
+		transform: translate3d(4vmax, -3vmax, 0) scale(1.08);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.nebula {
+		animation: none;
+	}
+}
