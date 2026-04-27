@@ -1,0 +1,186 @@
+1:"$Sreact.fragment"
+2:I[3338,["177","static/chunks/app/layout-ccfb345a9f8da372.js"],"ThemeProvider"]
+3:I[5169,["177","static/chunks/app/layout-ccfb345a9f8da372.js"],"GalaxyBackground"]
+4:I[2008,[],""]
+5:I[8622,[],""]
+6:I[6592,["265","static/chunks/265-c7feedf06683ef47.js","714","static/chunks/714-0b66d9c55d7a616d.js","750","static/chunks/app/(site)/layout-d8a20c963c2a8874.js"],"TopNav"]
+7:I[570,["265","static/chunks/265-c7feedf06683ef47.js","714","static/chunks/714-0b66d9c55d7a616d.js","750","static/chunks/app/(site)/layout-d8a20c963c2a8874.js"],"Sidebar"]
+8:I[265,["265","static/chunks/265-c7feedf06683ef47.js","271","static/chunks/app/(site)/docs/%5B...slug%5D/page-f75988a16f373d66.js"],""]
+a:I[9605,[],"OutletBoundary"]
+c:I[8352,[],"AsyncMetadataOutlet"]
+e:I[9605,[],"ViewportBoundary"]
+10:I[9605,[],"MetadataBoundary"]
+11:"$Sreact.suspense"
+13:I[612,[],""]
+:HL["/holocron/v0.0.3/_next/static/css/046b96c4dee4e665.css","style"]
+0:{"P":null,"b":"0XKoGO_-zrBtV_CG7n555","p":"/holocron/v0.0.3","c":["","docs","architecture","adr","003-reader-plugin-architecture",""],"i":false,"f":[[["",{"children":["(site)",{"children":["docs",{"children":[["slug","architecture/adr/003-reader-plugin-architecture","c"],{"children":["__PAGE__",{}]}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/holocron/v0.0.3/_next/static/css/046b96c4dee4e665.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","suppressHydrationWarning":true,"children":[["$","head",null,{"children":["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n(function () {\n  try {\n    var stored = localStorage.getItem('theme');\n    var resolved = stored === 'light' || stored === 'dark' ? stored : 'dark';\n    if (resolved === 'dark') document.documentElement.classList.add('dark');\n  } catch (_) {\n    document.documentElement.classList.add('dark');\n  }\n})();\n"}}]}],["$","body",null,{"className":"min-h-screen text-foreground antialiased","children":["$","$L2",null,{"children":[["$","$L3",null,{}],["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]]}]}]]}]]}],{"children":["(site)",["$","$1","c",{"children":[null,[["$","$L6",null,{}],["$","div",null,{"className":"mx-auto flex w-full max-w-7xl gap-8 px-4 lg:px-6","children":[["$","aside",null,{"className":"hidden w-60 shrink-0 lg:block","children":["$","div",null,{"className":"sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto py-6","children":["$","$L7",null,{}]}]}],["$","main",null,{"className":"min-w-0 flex-1 py-8 lg:py-10","children":["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","div",null,{"className":"flex flex-col items-start gap-4 py-16","children":[["$","h1",null,{"className":"text-3xl font-semibold tracking-tight","children":"Lost in space"}],["$","p",null,{"className":"max-w-md text-muted-foreground","children":"That page isn't on our charts. Try the navigation, or jump back to the home shell."}],["$","$L8",null,{"href":"/","className":"inline-flex items-center gap-2 rounded-md border border-border bg-card/40 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-accent","children":"Back to docs"}]]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]]}]]]}],{"children":["docs",["$","$1","c",{"children":[null,["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":[["slug","architecture/adr/003-reader-plugin-architecture","c"],["$","$1","c",{"children":[null,["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":["$L9",null,["$","$La",null,{"children":["$Lb",["$","$Lc",null,{"promise":"$@d"}]]}]]}],{},null,false]},null,false]},null,false]},null,false]},null,false],["$","$1","h",{"children":[null,[["$","$Le",null,{"children":"$Lf"}],null],["$","$L10",null,{"children":["$","div",null,{"hidden":true,"children":["$","$11",null,{"fallback":null,"children":"$L12"}]}]}]]}],false]],"m":"$undefined","G":["$13",[]],"s":false,"S":true}
+f:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+b:null
+14:T451c,<h1 id="adr-003-reader-plugin-architecture">ADR-003: Reader Plugin Architecture<a class="anchor" aria-label="Link to section" href="#adr-003-reader-plugin-architecture">#</a></h1>
+<p><strong>Date:</strong> 2026-01-27
+<strong>Status:</strong> ⚠️ <strong>Superseded by <a href="/docs/architecture/adr/006-plugin-sdk-entry-points">ADR-006</a></strong> (2026-04-26)
+<strong>Deciders:</strong> Tom</p>
+<blockquote>
+<p>The "reader" naming and the <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>/readers/{name}/scan</span></span></code></span> API have been replaced by
+the generic plugin system: a public <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>holocron-plugin-sdk</span></span></code></span> package, entry-point
+discovery via the <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>holocron.plugins</span></span></code></span> group, in-process invocation through
+<span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>POST /api/v1/plugins/{slug}/run</span></span></code></span>, and three capability families
+(connectors, exporters, audit/extension plugins). The "suggest don't write"
+model was dropped — plugins now have full service access via <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>PluginContext</span></span></code></span>.
+See <a href="/docs/architecture/adr/006-plugin-sdk-entry-points">ADR-006</a> for the rationale.</p>
+</blockquote>
+<h2 id="context">Context<a class="anchor" aria-label="Link to section" href="#context">#</a></h2>
+<p>Holocron needs "readers" — components that scan external sources (Excel files, databases, etc.) and suggest metadata about data assets. This is how Holocron learns about existing data without requiring 100% manual entry.</p>
+<p>Key requirements:</p>
+<ul>
+<li>Readers should be extensible (add new source types)</li>
+<li>Readers output <strong>suggestions</strong>, not direct writes (human approval required)</li>
+<li>Simple to implement new readers</li>
+<li>Must work in containerized environment</li>
+</ul>
+<h2 id="decision">Decision<a class="anchor" aria-label="Link to section" href="#decision">#</a></h2>
+<p><strong>Implement readers as in-process Python plugins that return suggestions via API.</strong></p>
+<h3 id="reader-behavior">Reader Behavior<a class="anchor" aria-label="Link to section" href="#reader-behavior">#</a></h3>
+<ol>
+<li>Readers are triggered via API: <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>POST /api/v1/readers/{name}/scan</span></span></code></span></li>
+<li>Readers receive a source path/URL and options</li>
+<li>Readers return suggestions (ephemeral, not persisted)</li>
+<li>Humans review suggestions and create assets via separate API calls</li>
+</ol>
+<h3 id="plugin-structure">Plugin Structure<a class="anchor" aria-label="Link to section" href="#plugin-structure">#</a></h3>
+<figure data-rehype-pretty-code-figure=""><pre tabindex="0" data-language="plaintext" data-theme="github-dark-dimmed github-light"><code data-language="plaintext" data-theme="github-dark-dimmed github-light" style="display: grid;"><span data-line=""><span>plugins/</span></span>
+<span data-line=""><span>└── excel_reader/</span></span>
+<span data-line=""><span>    ├── __init__.py</span></span>
+<span data-line=""><span>    └── reader.py      # Contains class extending BaseReader</span></span></code></pre></figure>
+<h2 id="options-considered">Options Considered<a class="anchor" aria-label="Link to section" href="#options-considered">#</a></h2>
+<h3 id="1-in-process-python-modules--selected">1. In-Process Python Modules ✅ Selected<a class="anchor" aria-label="Link to section" href="#1-in-process-python-modules--selected">#</a></h3>
+<p><strong>Pros:</strong></p>
+<ul>
+<li>Simplest to implement</li>
+<li>No IPC overhead</li>
+<li>Easy debugging</li>
+<li>Shared types with core</li>
+</ul>
+<p><strong>Cons:</strong></p>
+<ul>
+<li>Bad reader can crash the app</li>
+<li>All readers must be Python</li>
+<li>Memory shared with main process</li>
+</ul>
+<h3 id="2-subprocess-exec">2. Subprocess (exec)<a class="anchor" aria-label="Link to section" href="#2-subprocess-exec">#</a></h3>
+<p><strong>Pros:</strong></p>
+<ul>
+<li>Process isolation</li>
+<li>Can be any language</li>
+<li>Crash isolation</li>
+</ul>
+<p><strong>Cons:</strong></p>
+<ul>
+<li>IPC complexity (stdin/stdout JSON)</li>
+<li>Harder to debug</li>
+<li>Dependency management per reader</li>
+</ul>
+<h3 id="3-container-per-reader">3. Container per Reader<a class="anchor" aria-label="Link to section" href="#3-container-per-reader">#</a></h3>
+<p><strong>Pros:</strong></p>
+<ul>
+<li>Maximum isolation</li>
+<li>Independent scaling</li>
+<li>Any language/runtime</li>
+</ul>
+<p><strong>Cons:</strong></p>
+<ul>
+<li>Complex orchestration</li>
+<li>Slow startup</li>
+<li>Overkill for MVP</li>
+</ul>
+<h3 id="4-external-services-webhooks">4. External Services (webhooks)<a class="anchor" aria-label="Link to section" href="#4-external-services-webhooks">#</a></h3>
+<p><strong>Pros:</strong></p>
+<ul>
+<li>Fully decoupled</li>
+<li>Can run anywhere</li>
+</ul>
+<p><strong>Cons:</strong></p>
+<ul>
+<li>Network complexity</li>
+<li>Auth/security concerns</li>
+<li>Deployment overhead</li>
+</ul>
+<h2 id="rationale">Rationale<a class="anchor" aria-label="Link to section" href="#rationale">#</a></h2>
+<p>For MVP, <strong>simplicity wins</strong>. In-process plugins:</p>
+<ul>
+<li>Are trivial to implement (just Python classes)</li>
+<li>Share Pydantic models with the core</li>
+<li>Can be unit tested easily</li>
+<li>Don't require container orchestration</li>
+</ul>
+<p>The design <strong>doesn't prevent</strong> moving to subprocess or containers later. The <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>BaseReader</span></span></code></span> interface is the contract — implementation can change.</p>
+<h3 id="suggestion-model-not-direct-writes">Suggestion Model (Not Direct Writes)<a class="anchor" aria-label="Link to section" href="#suggestion-model-not-direct-writes">#</a></h3>
+<p>Critical design choice: readers <strong>suggest</strong>, they don't create.</p>
+<figure data-rehype-pretty-code-figure=""><pre tabindex="0" data-language="python" data-theme="github-dark-dimmed github-light"><code data-language="python" data-theme="github-dark-dimmed github-light" style="display: grid;"><span data-line=""><span style="--shiki-dark:#768390;--shiki-light:#6A737D"># Reader returns suggestions</span></span>
+<span data-line=""><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">POST</span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49"> /</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">readers</span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">/</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">excel</span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">/</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">scan {</span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"source"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"/data/file.xlsx"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">}</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">→ {</span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"suggestions"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: [{</span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"type"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"dataset"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">, </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"name"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"Sheet1"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">, </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">...</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">}]}</span></span>
+<span data-line=""> </span>
+<span data-line=""><span style="--shiki-dark:#768390;--shiki-light:#6A737D"># Human reviews and creates</span></span>
+<span data-line=""><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">POST</span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49"> /</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">assets {</span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"type"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"dataset"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">, </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"name"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"Sheet1"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">, </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">...</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">}</span></span></code></pre></figure>
+<p>Why:</p>
+<ul>
+<li><strong>Human stays in control</strong> — readers can be wrong</li>
+<li><strong>Auditability</strong> — humans are accountable for what's in Holocron</li>
+<li><strong>Simplicity</strong> — readers don't need write access to DB</li>
+<li><strong>KISS</strong> — no approval workflow state machine needed</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" aria-label="Link to section" href="#consequences">#</a></h2>
+<h3 id="positive">Positive<a class="anchor" aria-label="Link to section" href="#positive">#</a></h3>
+<ul>
+<li>Easy to write new readers (just extend BaseReader)</li>
+<li>No infrastructure complexity</li>
+<li>Suggestions are simple API responses</li>
+<li>Clear separation: readers suggest, humans decide</li>
+</ul>
+<h3 id="negative">Negative<a class="anchor" aria-label="Link to section" href="#negative">#</a></h3>
+<ul>
+<li>Readers share process memory</li>
+<li>A bad reader can affect API performance</li>
+<li>All readers must be Python</li>
+</ul>
+<h3 id="mitigations">Mitigations<a class="anchor" aria-label="Link to section" href="#mitigations">#</a></h3>
+<ul>
+<li>Timeouts on reader scan operations</li>
+<li>Input validation before passing to readers</li>
+<li>Consider process isolation if readers become untrusted</li>
+</ul>
+<h2 id="reader-interface">Reader Interface<a class="anchor" aria-label="Link to section" href="#reader-interface">#</a></h2>
+<figure data-rehype-pretty-code-figure=""><pre tabindex="0" data-language="python" data-theme="github-dark-dimmed github-light"><code data-language="python" data-theme="github-dark-dimmed github-light" style="display: grid;"><span data-line=""><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">from</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E"> abc </span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">import</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5"> ABC</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">, abstractmethod</span></span>
+<span data-line=""><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">from</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E"> pydantic </span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">import</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E"> BaseModel</span></span>
+<span data-line=""> </span>
+<span data-line=""><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">class</span><span style="--shiki-dark:#F69D50;--shiki-light:#6F42C1"> Suggestion</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">(</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#6F42C1">BaseModel</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">):</span></span>
+<span data-line=""><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">    type</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span><span style="--shiki-dark:#768390;--shiki-light:#6A737D">                    # dataset, report, etc.</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    name: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    description: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49"> |</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5"> None</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    location: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49"> |</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5"> None</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    confidence: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">float</span><span style="--shiki-dark:#768390;--shiki-light:#6A737D">            # 0.0 - 1.0</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    metadata: dict[</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">, Any]</span></span>
+<span data-line=""> </span>
+<span data-line=""><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">class</span><span style="--shiki-dark:#F69D50;--shiki-light:#6F42C1"> ScanResult</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">(</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#6F42C1">BaseModel</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">):</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    reader: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    source: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    suggestions: list[Suggestion]</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    errors: list[</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">]</span></span>
+<span data-line=""> </span>
+<span data-line=""><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">class</span><span style="--shiki-dark:#F69D50;--shiki-light:#6F42C1"> BaseReader</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">(</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">ABC</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">):</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    name: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    description: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    supported_sources: list[</span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">]  </span><span style="--shiki-dark:#768390;--shiki-light:#6A737D"># glob patterns</span></span>
+<span data-line=""> </span>
+<span data-line=""><span style="--shiki-dark:#DCBDFB;--shiki-light:#6F42C1">    @abstractmethod</span></span>
+<span data-line=""><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">    async</span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49"> def</span><span style="--shiki-dark:#DCBDFB;--shiki-light:#6F42C1"> scan</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">(self, source: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">str</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">, </span><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">**</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">options) -> ScanResult:</span></span>
+<span data-line=""><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">        """Scan source and return suggestions."""</span></span>
+<span data-line=""><span style="--shiki-dark:#F47067;--shiki-light:#D73A49">        pass</span></span></code></pre></figure>
+<h2 id="references">References<a class="anchor" aria-label="Link to section" href="#references">#</a></h2>
+<ul>
+<li><a href="https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/">Python Plugin Patterns</a></li>
+<li><a href="https://setuptools.pypa.io/en/latest/userguide/entry_point.html">Entry Points for Plugins</a></li>
+</ul>9:["$","article",null,{"className":"flex w-full min-w-0 flex-col gap-6","children":[["$","nav",null,{"aria-label":"Breadcrumb","className":"flex items-center gap-1 text-xs text-muted-foreground","children":[["$","$L8",null,{"href":"/","className":"hover:text-foreground","children":"Docs"}],[["$","span","/docs/architecture",{"className":"flex items-center gap-1","children":[["$","svg",null,{"ref":"$undefined","xmlns":"http://www.w3.org/2000/svg","width":24,"height":24,"viewBox":"0 0 24 24","fill":"none","stroke":"currentColor","strokeWidth":2,"strokeLinecap":"round","strokeLinejoin":"round","className":"lucide lucide-chevron-right h-3 w-3","aria-hidden":"true","children":[["$","path","mthhwq",{"d":"m9 18 6-6-6-6"}],"$undefined"]}],["$","$L8",null,{"href":"/docs/architecture","className":"hover:text-foreground","children":"Architecture"}]]}],["$","span","/docs/architecture/adr",{"className":"flex items-center gap-1","children":[["$","svg",null,{"ref":"$undefined","xmlns":"http://www.w3.org/2000/svg","width":24,"height":24,"viewBox":"0 0 24 24","fill":"none","stroke":"currentColor","strokeWidth":2,"strokeLinecap":"round","strokeLinejoin":"round","className":"lucide lucide-chevron-right h-3 w-3","aria-hidden":"true","children":[["$","path","mthhwq",{"d":"m9 18 6-6-6-6"}],"$undefined"]}],["$","$L8",null,{"href":"/docs/architecture/adr","className":"hover:text-foreground","children":"Adr"}]]}],["$","span","/docs/architecture/adr/003-reader-plugin-architecture",{"className":"flex items-center gap-1","children":[["$","svg",null,{"ref":"$undefined","xmlns":"http://www.w3.org/2000/svg","width":24,"height":24,"viewBox":"0 0 24 24","fill":"none","stroke":"currentColor","strokeWidth":2,"strokeLinecap":"round","strokeLinejoin":"round","className":"lucide lucide-chevron-right h-3 w-3","aria-hidden":"true","children":[["$","path","mthhwq",{"d":"m9 18 6-6-6-6"}],"$undefined"]}],["$","span",null,{"className":"text-foreground","children":"ADR-003: Reader Plugin Architecture"}]]}]]]}],["$","div",null,{"className":"prose-holo w-full","dangerouslySetInnerHTML":{"__html":"$14"}}],"$L15"]}]
+d:{"metadata":[["$","title","0",{"children":"ADR-003 · Reader plugin architecture · Holocron Docs"}],["$","meta","1",{"name":"description","content":"Declarative data governance — assets, lineage, hybrid search, a 3D map, and a plugin ecosystem."}]],"error":null,"digest":"$undefined"}
+12:"$d:metadata"
+15:["$","aside",null,{"className":"mt-8 rounded-lg border border-border/60 bg-card/30 p-4 backdrop-blur xl:hidden","children":[["$","div",null,{"className":"text-xs font-semibold uppercase tracking-wider text-muted-foreground","children":"On this page"}],["$","ul",null,{"className":"mt-2 flex flex-col gap-1 text-sm","children":[["$","li","context",{"className":"text-foreground","children":["$","a",null,{"href":"#context","className":"hover:text-primary","children":"Context"}]}],["$","li","decision",{"className":"text-foreground","children":["$","a",null,{"href":"#decision","className":"hover:text-primary","children":"Decision"}]}],["$","li","reader-behavior",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#reader-behavior","className":"hover:text-primary","children":"Reader Behavior"}]}],["$","li","plugin-structure",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#plugin-structure","className":"hover:text-primary","children":"Plugin Structure"}]}],["$","li","options-considered",{"className":"text-foreground","children":["$","a",null,{"href":"#options-considered","className":"hover:text-primary","children":"Options Considered"}]}],["$","li","1-in-process-python-modules-selected",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#1-in-process-python-modules-selected","className":"hover:text-primary","children":"1. In-Process Python Modules ✅ Selected"}]}],["$","li","2-subprocess-exec",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#2-subprocess-exec","className":"hover:text-primary","children":"2. Subprocess (exec)"}]}],["$","li","3-container-per-reader",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#3-container-per-reader","className":"hover:text-primary","children":"3. Container per Reader"}]}],["$","li","4-external-services-webhooks",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#4-external-services-webhooks","className":"hover:text-primary","children":"4. External Services (webhooks)"}]}],["$","li","rationale",{"className":"text-foreground","children":["$","a",null,{"href":"#rationale","className":"hover:text-primary","children":"Rationale"}]}],["$","li","suggestion-model-not-direct-writes",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#suggestion-model-not-direct-writes","className":"hover:text-primary","children":"Suggestion Model (Not Direct Writes)"}]}],["$","li","consequences",{"className":"text-foreground","children":["$","a",null,{"href":"#consequences","className":"hover:text-primary","children":"Consequences"}]}],["$","li","positive",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#positive","className":"hover:text-primary","children":"Positive"}]}],["$","li","negative",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#negative","className":"hover:text-primary","children":"Negative"}]}],["$","li","mitigations",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#mitigations","className":"hover:text-primary","children":"Mitigations"}]}],["$","li","reader-interface",{"className":"text-foreground","children":["$","a",null,{"href":"#reader-interface","className":"hover:text-primary","children":"Reader Interface"}]}],["$","li","references",{"className":"text-foreground","children":["$","a",null,{"href":"#references","className":"hover:text-primary","children":"References"}]}]]}]]}]
