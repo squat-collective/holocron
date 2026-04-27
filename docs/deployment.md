@@ -35,7 +35,32 @@ curl -fsSL https://github.com/squat-collective/holocron/releases/download/v0.1.0
 curl -fsSL .../install.sh | HOLOCRON_DIR=/opt/holocron bash
 ```
 
-Re-running the installer is safe: it won't overwrite an existing `.env`. To upgrade, change `HOLOCRON_VERSION` in `.env` and run `make prod-pull && make prod-up`.
+Re-running the installer plain is safe and idempotent: existing `.env` is preserved, existing `compose.prod.yml` is left alone, and the stack is just `compose pull && up -d`'d. That's the right behavior for a freshly-installed host.
+
+### Upgrading to a new release
+
+For an in-place upgrade — e.g. `v0.1.0` → `v0.1.1-alpha` — re-run with `--update`:
+
+```bash
+curl -fsSL https://github.com/squat-collective/holocron/releases/latest/download/install.sh | bash -s -- --update
+```
+
+What `--update` does, in order:
+
+1. Refreshes `compose.prod.yml` and `.env.example` from the requested release. The previous copies are saved as `compose.prod.yml.YYYYMMDD-HHMMSS.bak` and `.env.example.YYYYMMDD-HHMMSS.bak` so a structural change (new service, new healthcheck, new required env) actually lands without nuking what you had.
+2. Merges any keys present in the new `.env.example` but missing from your `.env` into a `# === Added by upgrade <timestamp> ===` block at the bottom of `.env`. **User-edited values are never touched** — the merge is additive only.
+3. Bumps `HOLOCRON_VERSION=` in `.env` to the requested version (defaults to `latest`; pin with `HOLOCRON_VERSION=vX.Y.Z` on the command line).
+4. Runs the existing `compose pull && up -d` and waits for `/health`.
+
+To pin the upgrade target instead of tracking `latest`:
+
+```bash
+curl -fsSL .../install.sh | HOLOCRON_VERSION=v0.1.1-alpha bash -s -- --update
+```
+
+Add `--backup` to dump the Neo4j volume to `neo4j-backup-<timestamp>.tar.gz` before pulling. The stack is briefly stopped (~30 s) for on-disk consistency — Neo4j Community can't online-dump.
+
+If you'd rather drive it manually, the path is the same one the installer takes: edit `HOLOCRON_VERSION` in `.env`, then `make prod-pull && make prod-up`. You'll just have to spot any new `.env.example` keys yourself.
 
 ### Default endpoints
 
