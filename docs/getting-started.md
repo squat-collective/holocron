@@ -19,7 +19,7 @@ curl -fsSL https://github.com/squat-collective/holocron/releases/latest/download
 
 Pulls pre-built images from GHCR, generates a strong Neo4j password into `./holocron/.env`, brings everything up, and waits until `/health` is green. This is the recommended path for users.
 
-To pin a release: `… | HOLOCRON_VERSION=v0.1.0 bash`. To put it on the open internet, see the [Caddy overlay](deployment.md#2-caddy-overlay-public-facing).
+To pin a release: `… | HOLOCRON_VERSION=v0.1.0 bash`. To upgrade later: `… | bash -s -- --update` (see [Upgrading](deployment.md#upgrading-to-a-new-release)). To put it on the open internet, see the [Caddy overlay](deployment.md#2-caddy-overlay-public-facing).
 
 ### b) Develop on Holocron (build from source)
 
