@@ -1,0 +1,65 @@
+name: Docs
+
+# Builds the docs-site as a static export and pushes to gh-pages:
+#   - push to main → root URL (live "latest" docs)
+#   - tag v*.*.*    → /<tag>/ subpath (archived snapshot of that release)
+# `keep_files: true` means the two paths co-exist — every release version
+# stays addressable.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional tag to (re)deploy. Leave blank for latest main."
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve deploy target
+        id: tgt
+        run: |
+          ref="${{ inputs.tag || github.ref_name }}"
+          if [[ "${{ github.ref }}" == refs/tags/* ]] || [[ -n "${{ inputs.tag }}" ]]; then
+            echo "version=$ref"             >> "$GITHUB_OUTPUT"
+            echo "base_path=/holocron/$ref" >> "$GITHUB_OUTPUT"
+            echo "destination_dir=$ref"     >> "$GITHUB_OUTPUT"
+          else
+            echo "version=main"             >> "$GITHUB_OUTPUT"
+            echo "base_path=/holocron"      >> "$GITHUB_OUTPUT"
+            echo "destination_dir=."        >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1"
+
+      - name: Install workspace deps
+        run: bun install --frozen-lockfile
+
+      - name: Build docs-site
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.tgt.outputs.base_path }}
+        run: bun run --filter holocron-docs-site build
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: packages/docs-site/out
+          destination_dir: ${{ steps.tgt.outputs.destination_dir }}
+          keep_files: true
+          enable_jekyll: false
+          full_commit_message: "docs: deploy ${{ steps.tgt.outputs.version }}"
