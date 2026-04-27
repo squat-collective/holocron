@@ -26,8 +26,8 @@ COPY package.json bun.lock ./
 COPY packages/sdk-ts ./packages/sdk-ts
 COPY packages/ui ./packages/ui
 
-# SDK must be built before the UI can resolve `@tomblancdev/holocron-ts`.
-RUN bun run --filter @tomblancdev/holocron-ts build
+# SDK must be built before the UI can resolve `@squat-collective/holocron-ts`.
+RUN bun run --filter @squat-collective/holocron-ts build
 RUN bun run --filter holocron-portal build
 
 # ---------- runner ----------
