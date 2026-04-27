@@ -98,8 +98,10 @@ class GraphService:
         self._lock = asyncio.Lock()
 
     def invalidate(self) -> None:
-        """Drop the cached layout. Call after any write that changes the
-        topology. Not wired up in this spike — restart picks up changes."""
+        """Drop the cached layout. Wired up via ``EventService.add_listener``
+        in :mod:`holocron.api.dependencies` so any asset/actor/rule/relation
+        create/update/delete clears the cache. The next ``get_map`` call
+        rebuilds it under the lock."""
         self._cache = None
 
     async def get_map(self, lod: LodTier) -> GraphMapResponse:

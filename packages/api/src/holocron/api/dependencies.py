@@ -1,11 +1,12 @@
 """Shared API dependencies for dependency injection."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Annotated
 
 from fastapi import Depends
 from neo4j import AsyncSession
 
+from holocron.api.schemas.events import EventResponse
 from holocron.core.services import (
     ActorService,
     AssetService,
@@ -137,11 +138,46 @@ _graph_service_singleton: GraphService | None = None
 def get_graph_service(
     driver: Annotated[Neo4jDriver, Depends(get_neo4j_driver)],
 ) -> GraphService:
-    """Get (or lazily create) the shared graph service."""
+    """Get (or lazily create) the shared graph service.
+
+    On first construction we subscribe its cache invalidator to the shared
+    EventService so any write that changes the topology (asset/actor/rule/
+    relation create/update/delete) drops the cached layout. Without this
+    hook the map only refreshed on process restart.
+    """
     global _graph_service_singleton
     if _graph_service_singleton is None:
         _graph_service_singleton = GraphService(driver=driver)
+        get_event_service().add_listener(
+            _make_graph_invalidator(_graph_service_singleton)
+        )
     return _graph_service_singleton
+
+
+# Entity types whose mutations affect the data-landscape map.
+_TOPOLOGY_ENTITIES = frozenset(
+    {
+        "asset",
+        "actor",
+        "rule",
+        "relation",
+    }
+)
+
+
+def _make_graph_invalidator(
+    graph_service: GraphService,
+) -> Callable[[EventResponse], None]:
+    """Build a sync EventListener that drops the graph cache for any topology
+    change. Returned as a closure so the dependency for the singleton stays
+    one-way (event -> graph) — the EventService doesn't need to know about
+    the GraphService type."""
+
+    def _invalidate(event: EventResponse) -> None:
+        if event.entity_type.value in _TOPOLOGY_ENTITIES:
+            graph_service.invalidate()
+
+    return _invalidate
 
 
 def get_search_service(
