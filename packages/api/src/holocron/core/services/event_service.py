@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from holocron.api.schemas.events import EntityType, EventAction, EventResponse
@@ -23,6 +24,11 @@ from holocron.db.repositories.event_repo import EventRepository
 from holocron.db.utils import ExecutionContext
 
 logger = logging.getLogger(__name__)
+
+# In-process listener: receives every successfully-logged event. Sync only —
+# the only current consumer is :class:`GraphService.invalidate`, which is a
+# trivial attribute write. Async fan-out stays the dispatcher's job.
+EventListener = Callable[[EventResponse], None]
 
 
 class EventService(EventRepository):
@@ -35,6 +41,14 @@ class EventService(EventRepository):
 
     def __init__(self, dispatcher: WebhookDispatcher | None = None) -> None:
         self.dispatcher = dispatcher
+        self._listeners: list[EventListener] = []
+
+    def add_listener(self, listener: EventListener) -> None:
+        """Register an in-process listener invoked synchronously after every
+        successful ``log()``. Used to wire cache invalidation into the same
+        write pipeline that already feeds webhooks. A listener that raises
+        is logged and skipped — one bad subscriber must not block the rest."""
+        self._listeners.append(listener)
 
     async def log(
         self,
@@ -64,6 +78,15 @@ class EventService(EventRepository):
             metadata=metadata,
             tx=tx,
         )
+        for listener in self._listeners:
+            try:
+                listener(event)
+            except Exception:
+                logger.exception(
+                    "event listener failed (entity=%s action=%s)",
+                    event.entity_type,
+                    event.action,
+                )
         if self.dispatcher is not None:
             self._schedule_dispatch(event)
         return event

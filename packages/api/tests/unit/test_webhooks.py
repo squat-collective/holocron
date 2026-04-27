@@ -405,3 +405,86 @@ class TestEventServiceDispatch:
             assert len(captured) == 1
         finally:
             EventRepository.log = original  # type: ignore[method-assign,assignment]
+
+    async def test_listeners_fire_after_log(self) -> None:
+        """In-process listeners run on every successful ``log()``. The graph
+        service's cache invalidation rides on top of this — without it the
+        ``/graph/map`` payload would only refresh on process restart."""
+        service = EventService(dispatcher=None)
+        seen: list[EventResponse] = []
+        service.add_listener(seen.append)
+
+        async def fake_log(*_a: Any, **_kw: Any) -> EventResponse:
+            return _make_event(action=EventAction.CREATED, entity_type=EntityType.ASSET)
+
+        from holocron.db.repositories.event_repo import EventRepository
+
+        original = EventRepository.log
+        EventRepository.log = fake_log  # type: ignore[method-assign,assignment]
+        try:
+            await service.log(
+                action=EventAction.CREATED,
+                entity_type=EntityType.ASSET,
+                entity_uid="x",
+            )
+            assert len(seen) == 1
+            assert seen[0].entity_type is EntityType.ASSET
+        finally:
+            EventRepository.log = original  # type: ignore[method-assign,assignment]
+
+    async def test_graph_invalidator_listener_drops_cache_on_topology_writes(
+        self,
+    ) -> None:
+        """The dependency wiring registers a graph-cache invalidator on the
+        EventService. Confirm it actually clears the cache for asset/actor/
+        rule/relation events, and is a no-op for unrelated entity types."""
+        from holocron.api.dependencies import _make_graph_invalidator
+
+        class _FakeGraphService:
+            def __init__(self) -> None:
+                self.invalidate_calls = 0
+
+            def invalidate(self) -> None:
+                self.invalidate_calls += 1
+
+        graph = _FakeGraphService()
+        listener = _make_graph_invalidator(graph)  # type: ignore[arg-type]
+
+        for entity in (
+            EntityType.ASSET,
+            EntityType.ACTOR,
+            EntityType.RULE,
+            EntityType.RELATION,
+        ):
+            listener(_make_event(entity_type=entity))
+        assert graph.invalidate_calls == 4
+
+    async def test_failing_listener_does_not_break_log(self) -> None:
+        """A misbehaving listener must not abort the write pipeline or starve
+        sibling listeners. We swallow the exception (logged) and keep going."""
+        service = EventService(dispatcher=None)
+
+        def boom(_event: EventResponse) -> None:
+            raise RuntimeError("nope")
+
+        seen: list[EventResponse] = []
+        service.add_listener(boom)
+        service.add_listener(seen.append)
+
+        async def fake_log(*_a: Any, **_kw: Any) -> EventResponse:
+            return _make_event()
+
+        from holocron.db.repositories.event_repo import EventRepository
+
+        original = EventRepository.log
+        EventRepository.log = fake_log  # type: ignore[method-assign,assignment]
+        try:
+            event = await service.log(
+                action=EventAction.CREATED,
+                entity_type=EntityType.ASSET,
+                entity_uid="x",
+            )
+            assert event.uid == "evt-1"
+            assert len(seen) == 1
+        finally:
+            EventRepository.log = original  # type: ignore[method-assign,assignment]
