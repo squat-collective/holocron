@@ -62,18 +62,21 @@ cd "$INSTALL_DIR"
 
 # --- Download compose + env template ---
 
+# GitHub release assets can't have leading dots, so .env.example is
+# uploaded as `env.example` and downloaded as `.env.example` locally.
 fetch() {
-	local name="$1"
-	if [ -f "$name" ]; then
-		warn "$name exists — keeping local copy"
+	local remote="$1"
+	local local_name="${2:-$1}"
+	if [ -f "$local_name" ]; then
+		warn "$local_name exists — keeping local copy"
 	else
-		curl -fsSL "${BASE_URL}/${name}" -o "$name"
-		ok "downloaded $name"
+		curl -fsSL "${BASE_URL}/${remote}" -o "$local_name"
+		ok "downloaded $local_name"
 	fi
 }
 
 fetch compose.prod.yml
-fetch .env.example
+fetch env.example .env.example
 
 # --- Generate .env on first run ---
 

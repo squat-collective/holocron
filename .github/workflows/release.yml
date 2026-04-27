@@ -103,6 +103,9 @@ jobs:
           echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
           echo "tag=$ref" >> "$GITHUB_OUTPUT"
 
+      - name: Stage env template (GH releases strip leading dots)
+        run: cp .env.example env.example
+
       - name: Generate release notes
         uses: softprops/action-gh-release@v2
         with:
@@ -111,7 +114,7 @@ jobs:
           files: |
             compose.prod.yml
             compose.prod.caddy.yml
-            .env.example
+            env.example
             install.sh
           body: |
             ## Install
