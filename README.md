@@ -50,6 +50,14 @@ That pulls pre-built images from GHCR, generates a strong Neo4j password, brings
 
 Pin a release: `… | HOLOCRON_VERSION=v0.1.0 bash`. Public deploys: see the **[Caddy overlay](docs/deployment.md#2-caddy-overlay-public-facing)** for auto-HTTPS + basic auth.
 
+Update an existing install:
+
+```bash
+curl -fsSL https://github.com/squat-collective/holocron/releases/latest/download/install.sh | bash -s -- --update
+```
+
+That refreshes `compose.prod.yml` + `.env.example` (timestamped `.bak` of the previous), merges any new env keys into your `.env` non-destructively, bumps `HOLOCRON_VERSION`, then `compose pull && up -d`. Add `--backup` to dump the Neo4j volume to a tarball first.
+
 Images live at `ghcr.io/squat-collective/holocron-{api,ui}` (multi-arch: amd64 + arm64).
 
 ## Documentation
