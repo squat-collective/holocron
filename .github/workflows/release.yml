@@ -1,7 +1,21 @@
 name: Release
 
 # Tagging `vX.Y.Z` cuts a release: builds + pushes API and UI images to GHCR
-# (multi-arch), creates a GitHub Release with the install instructions.
+# (multi-arch) on native runners, combines per-arch images into a multi-arch
+# manifest, then attaches the install assets to the GitHub Release.
+#
+# Build is split into two stages:
+#
+# 1. `build-arch` — one job per (image, platform) pair on the matching
+#    native runner (`ubuntu-latest` for amd64, `ubuntu-24.04-arm` for
+#    arm64). Each job builds and pushes ONE platform under a staging tag
+#    of the form `<image>:sha-<short>-<arch>`. No QEMU emulation.
+# 2. `combine-manifest` — one job per image, runs `buildx imagetools
+#    create` to fan the staging tags into a single multi-arch manifest
+#    re-tagged as `:latest`, `:vX.Y.Z`, `:X.Y.Z`, and `:sha-<short>`.
+#
+# Splitting on native runners cuts wall-clock from ~20 min (QEMU-emulated
+# arm64) to ~6 min (native arm64). The four build legs run in parallel.
 on:
   push:
     tags:
@@ -21,33 +35,31 @@ env:
   IMAGE_OWNER: ${{ github.repository_owner }}
 
 jobs:
-  build-and-push:
-    name: Build & push ${{ matrix.image }}
-    runs-on: ubuntu-latest
+  build-arch:
+    name: Build ${{ matrix.image.name }} (${{ matrix.platform.suffix }})
+    runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image: holocron-api
-            dockerfile: packages/api/Dockerfile
-          - image: holocron-ui
-            dockerfile: packages/ui/Dockerfile
+        image:
+          - { name: holocron-api, dockerfile: packages/api/Dockerfile }
+          - { name: holocron-ui, dockerfile: packages/ui/Dockerfile }
+        platform:
+          - { name: linux/amd64, runner: ubuntu-latest, suffix: amd64 }
+          - { name: linux/arm64, runner: ubuntu-24.04-arm, suffix: arm64 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - name: Resolve version
+      - name: Resolve version + sha
         id: version
         run: |
           ref="${{ inputs.tag || github.ref_name }}"
-          version="${ref#v}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
           echo "tag=$ref" >> "$GITHUB_OUTPUT"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+          echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
@@ -59,37 +71,86 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract image metadata
+      - name: Extract image labels
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}
-          tags: |
-            type=raw,value=latest
-            type=raw,value=${{ steps.version.outputs.tag }}
-            type=raw,value=${{ steps.version.outputs.version }}
-            type=sha,prefix=sha-
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image.name }}
           labels: |
-            org.opencontainers.image.title=${{ matrix.image }}
+            org.opencontainers.image.title=${{ matrix.image.name }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.licenses=MIT
 
-      - name: Build & push
+      - name: Build & push (per-arch staging tag)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          file: ${{ matrix.image.dockerfile }}
+          platforms: ${{ matrix.platform.name }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image.name }}:sha-${{ steps.version.outputs.sha_short }}-${{ matrix.platform.suffix }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          # Per-platform cache scope so amd64 and arm64 don't churn each
+          # other's layers.
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.suffix }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.suffix }}
+
+  combine-manifest:
+    name: Combine multi-arch manifest (${{ matrix.image }})
+    needs: build-arch
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [holocron-api, holocron-ui]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve version + sha
+        id: version
+        run: |
+          ref="${{ inputs.tag || github.ref_name }}"
+          echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=$ref" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Fan the per-arch staging tags into one multi-arch manifest tagged
+      # with every release-published name (latest, vX.Y.Z, X.Y.Z, sha-XXX).
+      # `imagetools create` is a registry-side metadata operation —
+      # instant, no rebuild.
+      - name: Combine into multi-arch manifest
+        env:
+          IMG: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}
+          SHA: ${{ steps.version.outputs.sha_short }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            -t "$IMG:latest" \
+            -t "$IMG:$TAG" \
+            -t "$IMG:$VERSION" \
+            -t "$IMG:sha-$SHA" \
+            "$IMG:sha-$SHA-amd64" \
+            "$IMG:sha-$SHA-arm64"
 
   release:
     name: Attach release assets
-    needs: build-and-push
+    needs: combine-manifest
     runs-on: ubuntu-latest
     permissions:
       contents: write
