@@ -166,8 +166,15 @@ function HomeInner() {
 		);
 	}
 
+	// Map mode wraps a WebGL canvas that genuinely needs a fixed viewport
+	// height; list mode just stacks results that should scroll naturally
+	// when they exceed the viewport (especially on shorter laptop screens).
+	const mainHeightClass =
+		mode === "map"
+			? "h-[calc(100dvh-3.625rem)] overflow-hidden"
+			: "min-h-[calc(100dvh-3.625rem)]";
 	return (
-		<main className="relative w-full h-[calc(100dvh-3.625rem)] flex flex-col px-6 py-4 gap-4 overflow-hidden">
+		<main className={`relative w-full ${mainHeightClass} flex flex-col px-6 py-4 gap-4`}>
 			{/* Top bar — shared search input + mode toggle + result chip. */}
 			<div className="shrink-0 flex items-center gap-3">
 				<div className="flex-1 max-w-3xl">

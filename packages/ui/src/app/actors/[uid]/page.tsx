@@ -14,11 +14,11 @@ export default function ActorPage() {
 	const { data: actor, isLoading, error } = useActor(uid);
 
 	return (
-		<main className="w-full h-[calc(100dvh-3.625rem)] flex flex-col px-6 py-4 gap-3 overflow-hidden">
+		<main className="w-full min-h-[calc(100dvh-3.625rem)] flex flex-col px-6 py-4 gap-3">
 			<div className="shrink-0">
 				<BackToSearch />
 			</div>
-			<div className="flex-1 min-h-0 flex flex-col">
+			<div className="flex-1 flex flex-col">
 				<ActorDetail actor={actor} isLoading={isLoading} error={error} />
 			</div>
 		</main>
