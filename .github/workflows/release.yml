@@ -88,50 +88,50 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
   release:
-    name: Create GitHub Release
+    name: Attach release assets
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Resolve version
         id: version
         run: |
-          ref="${{ github.ref_name }}"
-          echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+          ref="${{ inputs.tag || github.ref_name }}"
           echo "tag=$ref" >> "$GITHUB_OUTPUT"
 
       - name: Stage env template (GH releases strip leading dots)
         run: cp .env.example env.example
 
-      - name: Generate release notes
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          generate_release_notes: true
-          files: |
-            compose.prod.yml
-            compose.prod.caddy.yml
-            env.example
+      # Idempotent asset upload: release-please created the release + body
+      # when it merged its PR, this just attaches the install assets to
+      # whatever release exists at the tag. For manual `git tag && git push`
+      # flows the release won't exist yet — create a minimal one pointing
+      # at the README install section so users don't land on a broken
+      # release page. release-please's normal flow always hits the second
+      # branch (release exists, just upload).
+      - name: Ensure release exists, attach assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Manual-tag fallback. release-please normally beats us here.
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --notes "Install instructions: see [README](https://github.com/$GITHUB_REPOSITORY#quick-start)."
+          fi
+          gh release upload "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            compose.prod.yml \
+            compose.prod.caddy.yml \
+            env.example \
             install.sh
-          body: |
-            ## Install
-
-            ```bash
-            curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/install.sh | bash
-            ```
-
-            Or pin to this version:
-
-            ```bash
-            curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/install.sh | HOLOCRON_VERSION=${{ steps.version.outputs.tag }} bash
-            ```
-
-            ## Images
-
-            - `ghcr.io/${{ env.IMAGE_OWNER }}/holocron-api:${{ steps.version.outputs.tag }}`
-            - `ghcr.io/${{ env.IMAGE_OWNER }}/holocron-ui:${{ steps.version.outputs.tag }}`
-
-            Both built for `linux/amd64` and `linux/arm64`.
