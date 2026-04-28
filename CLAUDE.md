@@ -81,6 +81,8 @@ The release-please PR creates the tag on merge, which dispatches the existing `r
 
 When release-please's proposed version doesn't match the change's actual scope, override on the open release-please PR via a `Release-As: x.y.z` footer in a commit on its branch — never by tagging manually on the side. Manual tagging skips the changelog generation, the asset upload, and the audit trail.
 
+**A single release bundles many issues.** Don't cut a release per issue. release-please's open PR accumulates every commit on `main` since the last tag — fixes for multiple issues, small features, and chores all land together in the next release section. The natural cadence is: queue PRs on `main`, let the release-please PR grow, merge when the bundle feels coherent (a logical batch shipped together) or when there's an external reason to cut (deadline, request, milestone). The version bump reflects the *bundle's* scope, not the heaviest individual change inside it.
+
 History note: the original `v0.1.0-alpha` was cut by hand for what was actually a patch + small feature. It was re-tagged as `v0.0.4-alpha` on 2026-04-28 and the rule above was added to prevent it from happening again.
 
 ### Tech Stack
