@@ -124,7 +124,7 @@ function EditFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 			}
 
 			const res = await fetch(`/api/holocron/assets/${assetUid}`, {
-				method: "PATCH",
+				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload),
 			});

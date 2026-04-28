@@ -111,9 +111,8 @@ function EditFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 				entityKind === "asset"
 					? `/api/holocron/assets/${entityUid}`
 					: `/api/holocron/actors/${entityUid}`;
-			const method = entityKind === "asset" ? "PATCH" : "PUT";
 			const res = await fetch(url, {
-				method,
+				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ metadata: nextMetadata }),
 			});

@@ -33,6 +33,19 @@ from holocron.db.connection import Neo4jDriver
 
 logger = logging.getLogger(__name__)
 
+# Relation types that contribute edges to the data-landscape map. Kept as a
+# module-level constant so adding a new type doesn't require eyeballing a
+# string-embedded Cypher list. Order is irrelevant; the cypher renders
+# whatever's here as a static IN clause.
+_MAP_EDGE_TYPES: tuple[str, ...] = (
+    "OWNS",
+    "USES",
+    "FEEDS",
+    "CONTAINS",
+    "MEMBER_OF",
+    "APPLIES_TO",
+)
+
 # Deterministic seed so the layout is stable across requests/restarts —
 # tiles + client-side caching only work if positions don't drift.
 _LAYOUT_SEED = 42
@@ -214,11 +227,12 @@ class GraphService:
                 n.name AS name,
                 coalesce(n.type, n.severity, 'unknown') AS subtype
         """
-        edge_cypher = """
+        edge_types = ",".join(f"'{t}'" for t in _MAP_EDGE_TYPES)
+        edge_cypher = f"""
             MATCH (a)-[r]->(b)
             WHERE (a:Asset OR a:Actor OR a:Rule)
               AND (b:Asset OR b:Actor OR b:Rule)
-              AND type(r) IN ['OWNS','USES','FEEDS','MEMBER_OF','APPLIES_TO']
+              AND type(r) IN [{edge_types}]
             RETURN
                 coalesce(r.uid, elementId(r)) AS uid,
                 a.uid AS source,
