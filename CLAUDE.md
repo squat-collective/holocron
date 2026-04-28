@@ -59,11 +59,22 @@ Each package has its own `CLAUDE.md` with package-specific rules:
 - **Update together** — Docs update with code in the same PR
 
 ### Changelog discipline
-Every PR with user-visible impact must add an entry under `## [Unreleased]` in `CHANGELOG.md` ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format). User-visible means: anything that changes UI behavior, API surface, install/upgrade flow, configuration, or breaking changes — anything an upgrading user would want to know about. Skip for: pure refactors with no behavior change, internal test additions, dev-only tooling, typo fixes, doc-only PRs that aren't documenting a change.
+`CHANGELOG.md` is **maintained automatically** by [release-please](https://github.com/googleapis/release-please) from conventional-commit subjects on `main`. The PR title IS the changelog entry once the PR squash-merges, so the bar shifts from "remember to edit a file" to "write a user-readable PR title."
 
-Entry format: one sentence, present tense, user-perspective. Group by intent — `Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`. Don't lead with the PR number; the diff already says that. Reference issues only when they add context the entry doesn't carry on its own.
+Title format (also enforced by the `Lint PR title` workflow):
+- `feat: …` → goes under **Added**
+- `fix: …` → goes under **Fixed**
+- `perf: …` / `deps: …` → **Changed**
+- `revert: …` → **Removed**
+- `docs: …` / `chore: …` / `test: …` / `ci: …` / `build: …` / `refactor: …` / `style: …` → hidden from changelog
 
-On release: rename `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD` and add a fresh empty `[Unreleased]` block back at the top. The release tag is what cuts the version.
+Subject must start lowercase, be one sentence, present tense, user-perspective. Don't lead with PR numbers — the squash commit already carries them. Optional scope in parens (`fix(api): …`, `feat(ui): …`) — keep them short and focused on the affected package.
+
+You don't normally edit `CHANGELOG.md` directly. The exceptions:
+- Polishing wording on the open release-please PR before merging it (it's a normal PR — you can push commits to its branch).
+- Manually adding entries that don't map to a single commit (e.g. a security advisory reference or a behaviour-change note that spans multiple commits). In that case edit the open release-please PR's `[Unreleased]` block and explain why in the commit message.
+
+The release-please PR creates the tag on merge, which dispatches the existing `release.yml` to build and publish the multi-arch images. Pre-releases on `main` cut as `vX.Y.Z-alpha.N` (configured in `release-please-config.json`); promoting to a stable release is a manual `release-as` override on the release-please PR.
 
 ### Tech Stack
 - **Backend:** Python 3.12+, FastAPI, Neo4j 5, Pydantic v2, pytest

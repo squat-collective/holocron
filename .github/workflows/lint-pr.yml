@@ -1,0 +1,49 @@
+name: Lint PR title
+
+# Conventional-commit format check on the PR title. Squash-merge keeps
+# the PR title as the commit subject on main, which is the source
+# release-please reads to generate CHANGELOG entries — so a bad title
+# becomes a bad changelog. We enforce here, not in commit hooks, so
+# in-progress branches stay flexible.
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Mirror release-please-config.json's `changelog-sections` types
+          # so anything that becomes a changelog entry passes the check.
+          types: |
+            feat
+            fix
+            perf
+            revert
+            deps
+            docs
+            chore
+            test
+            ci
+            build
+            refactor
+            style
+          # Optional scopes — keep loose so contributors aren't blocked
+          # by an unfamiliar scope name.
+          requireScope: false
+          # Subject must start lower-case (matches existing repo style).
+          subjectPattern: ^[a-z].+$
+          subjectPatternError: |
+            The subject "{subject}" must start with a lowercase letter.
+            Example: `feat(api): add tag autosuggest endpoint`.
