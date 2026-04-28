@@ -9,17 +9,9 @@ Releases on the `main` branch are pre-release alphas. From `v0.1.0-alpha`
 onwards, this file is maintained by
 [release-please](https://github.com/googleapis/release-please) — every PR
 with a conventional-commit title (`feat:`, `fix:`, `perf:`, …) becomes
-an entry in the next release section automatically.
-
-## [Unreleased]
-
-### Fixed
-- Galaxy map now renders `CONTAINS` edges, so asset hierarchies (a system containing its reports, an app containing its dashboards) are visible instead of appearing as disconnected nodes.
-- Asset edit wizards (`Edit name` / `Edit description` / `Edit location` / `Change status` / metadata edits) no longer 405 on save — the wizards used to issue `PATCH` while the API only accepts `PUT`.
-- Wizards opened from the ⌘K command palette now have keyboard focus on their first interactive element, so arrow-key navigation works on the very first step without needing to click first.
-
-### Internal
-- `CLAUDE.md` now describes the changelog discipline concretely (when an entry is required, what shape it takes, what triggers a version bump).
+an entry in the next release section automatically. What's pending for
+the next release is visible on the open `release-please` PR; it lands
+here only when that PR is merged.
 
 ## [0.1.0-alpha] — 2026-04-27
 
@@ -50,7 +42,6 @@ First pre-release after migrating the repo to `squat-collective`. Image registry
 ### Added
 - Initial public release of Holocron under `squat-collective/holocron`. Multi-arch (`linux/amd64` + `linux/arm64`) Docker images for `holocron-api` and `holocron-ui` published to GHCR. `install.sh` one-click installer + Caddy overlay for public deploys.
 
-[Unreleased]: https://github.com/squat-collective/holocron/compare/v0.1.0-alpha...HEAD
 [0.1.0-alpha]: https://github.com/squat-collective/holocron/compare/v0.0.3...v0.1.0-alpha
 [0.0.3]: https://github.com/squat-collective/holocron/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/squat-collective/holocron/compare/v0.0.1...v0.0.2
