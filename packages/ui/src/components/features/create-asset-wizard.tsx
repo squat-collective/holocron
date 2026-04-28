@@ -19,6 +19,7 @@ import {
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { EntityPicker, type TailOption } from "@/components/features/search/entity-picker";
+import { TagAutocompleteInput } from "@/components/features/tag-autocomplete-input";
 import {
 	Kbd,
 	Stepper,
@@ -1023,27 +1024,16 @@ function StepTags({ value, onChange }: { value: string[]; onChange: (v: string[]
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	useWizardAutoFocus(inputRef);
 
-	const add = (raw: string) => {
-		const normalized = raw.trim().replace(/^#/, "").toLowerCase();
-		if (!normalized) return;
-		if (value.includes(normalized)) return;
-		onChange([...value, normalized]);
+	const add = (normalised: string) => {
+		if (!normalised) return;
+		if (value.includes(normalised)) return;
+		onChange([...value, normalised]);
 		setDraft("");
 		inputRef.current?.focus();
 	};
 
-	const handleKey = (e: KeyboardEvent<HTMLInputElement>) => {
-		if (e.metaKey || e.ctrlKey) return;
-		if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
-			if (draft.trim().length === 0) return;
-			e.preventDefault();
-			add(draft);
-			return;
-		}
-		if (e.key === "Backspace" && draft === "" && value.length > 0) {
-			e.preventDefault();
-			onChange(value.slice(0, -1));
-		}
+	const onBackspaceEmpty = () => {
+		if (value.length > 0) onChange(value.slice(0, -1));
 	};
 
 	return (
@@ -1052,7 +1042,7 @@ function StepTags({ value, onChange }: { value: string[]; onChange: (v: string[]
 				<h3 className="text-xl font-semibold">Any tags?</h3>
 				<p className="text-sm text-muted-foreground">
 					Free-form labels to help people filter. Optional — press <Kbd>↵</Kbd> or <Kbd>,</Kbd> to
-					add.
+					add. Existing tags from the catalog appear as suggestions.
 				</p>
 			</div>
 			{value.length > 0 && (
@@ -1077,13 +1067,14 @@ function StepTags({ value, onChange }: { value: string[]; onChange: (v: string[]
 					))}
 				</div>
 			)}
-			<Input
-				ref={inputRef}
+			<TagAutocompleteInput
+				inputRef={inputRef}
 				value={draft}
-				onChange={(e) => setDraft(e.target.value)}
-				onKeyDown={handleKey}
+				onValueChange={setDraft}
+				onAdd={add}
+				onBackspaceEmpty={onBackspaceEmpty}
+				excluded={value}
 				placeholder="e.g. pii, gold-layer, mission-critical…"
-				className="h-11"
 			/>
 		</div>
 	);

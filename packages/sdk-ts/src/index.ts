@@ -32,6 +32,8 @@ export type {
 	WebhookCreated,
 	WebhookUpdate,
 	WebhookEventPayload,
+	TagUsage,
+	TagList,
 } from "./client";
 
 // Errors
