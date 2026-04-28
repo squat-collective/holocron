@@ -70,18 +70,23 @@ export function Kbd({ children }: { children: ReactNode }) {
 /* ------------------------------------------------------------------ */
 /* Wizard focus: DRY autofocus behaviour across every step/phase      */
 /*                                                                    */
-/* Every wizard shell wraps its content in WizardFocusProvider with   */
-/* `initialInteracted` set to `isNested` — so a wizard pushed on top  */
-/* of another one autofocuses immediately, while the first wizard     */
-/* opened from ⌘K stays quiet until the user does something.          */
+/* Every wizard shell wraps its content in WizardFocusProvider so     */
+/* `markInteracted` is reachable from anywhere in the tree, but the   */
+/* autofocus hooks below ignore it — they always focus on mount.      */
+/*                                                                    */
+/* History: the provider used to gate autofocus on `hasInteracted`    */
+/* so a wizard opened from ⌘K stayed "quiet" until the user pressed   */
+/* Next. That broke arrow-key navigation on cold open: nothing got    */
+/* focus, so ↑/↓ had no element to fire against (issue #7). The       */
+/* provider stays for backwards compat with call sites that still     */
+/* call `markInteracted`, but the autofocus contract is unconditional.*/
 /*                                                                    */
 /* Any primary element in any view just calls                         */
 /*                                                                    */
 /*     const ref = useRef<HTMLInputElement>(null);                    */
 /*     useWizardAutoFocus(ref);                                       */
 /*                                                                    */
-/* and it gets focus on mount iff the user has interacted with the    */
-/* wizard at all. No prop drilling, no per-dialog wiring.             */
+/* and it gets focus on mount. No prop drilling, no per-dialog wiring.*/
 /* ------------------------------------------------------------------ */
 
 interface WizardFocusValue {
@@ -120,21 +125,19 @@ export function useWizardFocus(): WizardFocusValue {
 }
 
 /**
- * Attach this to any primary element to make it autofocus on mount — but
- * only if the user has interacted with the wizard. First mount after ⌘K
- * stays unfocused; every subsequent view that mounts does focus.
+ * Attach this to any primary element to make it autofocus on mount.
  *
- * Captures `hasInteracted` at mount time so the element never re-focuses
- * unexpectedly if interaction state flips while the component is alive.
+ * Runs once per mount inside `requestAnimationFrame` so the focus call
+ * lands after Radix's own focus-management (we override
+ * `onOpenAutoFocus` to a noop on every wizard Dialog — without this
+ * hook the cold-open mount has no focused element and arrow keys go
+ * nowhere). Subsequent re-renders of the same component don't refocus
+ * because the effect only depends on the stable `ref` identity.
  */
 export function useWizardAutoFocus<T extends HTMLElement>(
 	ref: RefObject<T | null>,
 ): void {
-	const { hasInteracted } = useWizardFocus();
-	// Snapshot the value at mount — subsequent renders don't refocus.
-	const shouldFocusOnMountRef = useRef(hasInteracted);
 	useEffect(() => {
-		if (!shouldFocusOnMountRef.current) return;
 		const raf = requestAnimationFrame(() => {
 			ref.current?.focus();
 		});
@@ -161,11 +164,8 @@ export function useConditionalAutoFocus(
 	resolve: () => HTMLElement | null,
 	deps: ReadonlyArray<unknown>,
 ): void {
-	const { hasInteracted } = useWizardFocus();
-	const shouldFocusOnMountRef = useRef(hasInteracted);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect(() => {
-		if (!shouldFocusOnMountRef.current) return;
 		const raf = requestAnimationFrame(() => {
 			resolve()?.focus();
 		});
