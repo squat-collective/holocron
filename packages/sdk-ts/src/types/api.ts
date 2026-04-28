@@ -34,6 +34,10 @@ export interface paths {
         /**
          * List Assets
          * @description List assets with optional filtering.
+         *
+         *     The verification / ownership / description filters back the
+         *     "governance saved-searches" surface in the UI command palette. When
+         *     multiple filters are supplied they AND together.
          */
         get: operations["list_assets_api_v1_assets_get"];
         put?: never;
@@ -369,6 +373,82 @@ export interface paths {
          *     - DownloadResult → streamed back with an attachment Content-Disposition
          */
         post: operations["run_plugin_api_v1_plugins__slug__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Webhooks
+         * @description List registered webhook subscribers (newest first).
+         */
+        get: operations["list_webhooks_api_v1_webhooks_get"];
+        put?: never;
+        /**
+         * Create Webhook
+         * @description Register a new webhook. The HMAC ``secret`` is returned **once** — the
+         *     client must store it now to verify future ``X-Holocron-Signature`` headers.
+         */
+        post: operations["create_webhook_api_v1_webhooks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Webhook
+         * @description Get a single webhook by uid.
+         */
+        get: operations["get_webhook_api_v1_webhooks__uid__get"];
+        /**
+         * Update Webhook
+         * @description Update a webhook. Setting ``disabled=false`` clears the failure counter.
+         */
+        put: operations["update_webhook_api_v1_webhooks__uid__put"];
+        post?: never;
+        /**
+         * Delete Webhook
+         * @description Remove a webhook subscription.
+         */
+        delete: operations["delete_webhook_api_v1_webhooks__uid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{uid}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Webhook
+         * @description Fire a synthetic event at the webhook so the receiver can be verified.
+         *
+         *     The event has ``entity_uid="webhook-test"`` and ``metadata.test=true`` so
+         *     receivers can filter test traffic out of analytics if they want.
+         */
+        post: operations["test_webhook_api_v1_webhooks__uid__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1174,6 +1254,120 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * WebhookCreate
+         * @description Request body for registering a new webhook subscription.
+         */
+        WebhookCreate: {
+            /**
+             * Url
+             * Format: uri
+             * @description HTTPS URL the API will POST events to.
+             */
+            url: string;
+            /**
+             * Events
+             * @description Event topics to subscribe to. Use ``['*']`` for every event, or a list like ``['asset.created', 'actor.updated']``.
+             */
+            events?: string[];
+            /**
+             * Secret
+             * @description HMAC key used to sign each request (header ``X-Holocron-Signature``). Auto-generated when omitted; the generated secret is returned once on creation.
+             */
+            secret?: string | null;
+            /** Description */
+            description?: string | null;
+        };
+        /**
+         * WebhookCreateResponse
+         * @description Webhook + plaintext secret. Only returned once, at creation time.
+         */
+        WebhookCreateResponse: {
+            /** Uid */
+            uid: string;
+            /** Url */
+            url: string;
+            /** Events */
+            events: string[];
+            /** Description */
+            description: string | null;
+            /** Disabled */
+            disabled: boolean;
+            /** Failure Count */
+            failure_count: number;
+            /** Last Fired At */
+            last_fired_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Secret
+             * @description HMAC key — store now, the API will not surface it again.
+             */
+            secret: string;
+        };
+        /** WebhookListResponse */
+        WebhookListResponse: {
+            /** Items */
+            items: components["schemas"]["WebhookResponse"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * WebhookResponse
+         * @description Webhook returned by the API. ``secret`` is only ever exposed on creation.
+         */
+        WebhookResponse: {
+            /** Uid */
+            uid: string;
+            /** Url */
+            url: string;
+            /** Events */
+            events: string[];
+            /** Description */
+            description: string | null;
+            /** Disabled */
+            disabled: boolean;
+            /** Failure Count */
+            failure_count: number;
+            /** Last Fired At */
+            last_fired_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * WebhookUpdate
+         * @description Partial update for an existing webhook. All fields optional.
+         */
+        WebhookUpdate: {
+            /** Url */
+            url?: string | null;
+            /** Events */
+            events?: string[] | null;
+            /** Description */
+            description?: string | null;
+            /** Disabled */
+            disabled?: boolean | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -1210,6 +1404,12 @@ export interface operations {
             query?: {
                 /** @description Filter by asset type */
                 type?: components["schemas"]["AssetType"] | null;
+                /** @description Filter by verification state. true → only verified; false → only unverified. */
+                verified?: boolean | null;
+                /** @description true → assets with at least one incoming `owns` relation; false → orphan assets. */
+                has_owner?: boolean | null;
+                /** @description true → assets with a non-empty description; false → undocumented assets. */
+                has_description?: boolean | null;
                 /** @description Max items to return */
                 limit?: number;
                 /** @description Number of items to skip */
@@ -2036,6 +2236,199 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_webhooks_api_v1_webhooks_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_webhook_api_v1_webhooks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_webhook_api_v1_webhooks__uid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_webhook_api_v1_webhooks__uid__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_webhook_api_v1_webhooks__uid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_webhook_api_v1_webhooks__uid__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
             /** @description Validation Error */

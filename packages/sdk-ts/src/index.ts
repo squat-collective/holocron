@@ -27,6 +27,11 @@ export type {
 	GraphNode,
 	GraphEdge,
 	LodTier,
+	Webhook,
+	WebhookCreate,
+	WebhookCreated,
+	WebhookUpdate,
+	WebhookEventPayload,
 } from "./client";
 
 // Errors
