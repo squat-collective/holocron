@@ -15,6 +15,8 @@ const createMockClient = () => {
 					description: null,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-01T00:00:00Z",
 				}),
 			),
@@ -27,6 +29,8 @@ const createMockClient = () => {
 					description: null,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-02T00:00:00Z",
 				}),
 			),
@@ -39,6 +43,8 @@ const createMockClient = () => {
 					description: null,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-03T00:00:00Z",
 				}),
 			),
@@ -102,6 +108,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -121,6 +129,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -142,6 +152,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -161,6 +173,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -184,6 +198,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -202,6 +218,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -224,6 +242,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -253,6 +273,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: { key: "value" },
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -266,6 +288,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: { key: "value" },
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 		});
@@ -299,6 +323,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -324,6 +350,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -344,6 +372,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -380,6 +410,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -413,6 +445,8 @@ describe("ActorEntity", () => {
 				description: null,
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-02T00:00:00Z",
 			});
 

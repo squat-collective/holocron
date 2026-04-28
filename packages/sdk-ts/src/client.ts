@@ -14,10 +14,21 @@ export type Asset = components["schemas"]["AssetResponse"];
 
 /**
  * Input for creating a new asset.
+ *
+ * The API's Pydantic model has defaults for `status` (`active`),
+ * `verified` (`true`), and `discovered_by` (`null`) — but
+ * openapi-typescript surfaces fields with non-nullable defaults as
+ * required. Re-make them optional here so callers don't have to
+ * spell them out for the common case.
  * @category Types
  */
-export type AssetCreate = Omit<components["schemas"]["AssetCreate"], "status"> & {
+export type AssetCreate = Omit<
+	components["schemas"]["AssetCreate"],
+	"status" | "verified" | "discovered_by"
+> & {
 	status?: components["schemas"]["AssetStatus"];
+	verified?: boolean;
+	discovered_by?: string | null;
 };
 
 /**
@@ -45,10 +56,17 @@ export type AssetStatus = components["schemas"]["AssetStatus"];
 export type Actor = components["schemas"]["ActorResponse"];
 
 /**
- * Input for creating a new actor.
+ * Input for creating a new actor. `verified` defaults to `true` and
+ * `discovered_by` to `null` server-side; both are optional for clients.
  * @category Types
  */
-export type ActorCreate = components["schemas"]["ActorCreate"];
+export type ActorCreate = Omit<
+	components["schemas"]["ActorCreate"],
+	"verified" | "discovered_by"
+> & {
+	verified?: boolean;
+	discovered_by?: string | null;
+};
 
 /**
  * Input for updating an existing actor.
@@ -69,10 +87,18 @@ export type ActorType = components["schemas"]["ActorType"];
 export type Relation = components["schemas"]["RelationResponse"];
 
 /**
- * Raw input for creating a new relation (API format).
+ * Raw input for creating a new relation (API format). Same defaults
+ * applied as for assets/actors — `verified` and `discovered_by` are
+ * optional for clients.
  * @category Types
  */
-export type RelationCreate = components["schemas"]["RelationCreate"];
+export type RelationCreate = Omit<
+	components["schemas"]["RelationCreate"],
+	"verified" | "discovered_by"
+> & {
+	verified?: boolean;
+	discovered_by?: string | null;
+};
 
 /**
  * Valid relation types: `owns`, `uses`, `feeds`, `derived_from`, `contains`, `produces`, `consumes`, `member_of`.
@@ -161,6 +187,61 @@ export type GraphEdge = components["schemas"]["GraphEdge"];
  * @category Types
  */
 export type LodTier = components["schemas"]["LodTier"];
+
+/**
+ * A webhook subscription returned by the API. The HMAC `secret` is never
+ * present here — see {@link WebhookCreated} for the one-shot reveal.
+ * @category Types
+ */
+export type Webhook = components["schemas"]["WebhookResponse"];
+
+/**
+ * Input for registering a new webhook subscription.
+ * @category Types
+ */
+export type WebhookCreate = components["schemas"]["WebhookCreate"];
+
+/**
+ * The response returned by `webhooks.create` — a {@link Webhook} plus the
+ * plaintext HMAC `secret`. The secret is only ever exposed at creation
+ * time; the API will not surface it again, so the client must store it
+ * now to verify future `X-Holocron-Signature` headers.
+ * @category Types
+ */
+export type WebhookCreated = components["schemas"]["WebhookCreateResponse"];
+
+/**
+ * Partial update for an existing webhook. Setting `disabled: false`
+ * re-enables a webhook that was auto-disabled after consecutive
+ * failures and clears the failure counter.
+ * @category Types
+ */
+export type WebhookUpdate = components["schemas"]["WebhookUpdate"];
+
+/**
+ * Body POSTed to subscriber URLs when an event fires. The canonical
+ * `topic` (`"<entity>.<action>"`) lets receivers route by string
+ * without reading both `action` and `entity_type`.
+ *
+ * Defined here rather than re-exported from generated types because
+ * the API never receives this shape — it's outbound-only and so
+ * doesn't appear on any endpoint's request/response schema.
+ * Consumers writing webhook receivers need it for typing their
+ * handlers, so we mirror the API's Pydantic model by hand.
+ * @category Types
+ */
+export interface WebhookEventPayload {
+	/** "<entity>.<action>", e.g. "asset.created". */
+	topic: string;
+	event_uid: string;
+	action: EventAction;
+	entity_type: EntityType;
+	entity_uid: string;
+	actor_uid: string | null;
+	timestamp: string;
+	changes: Record<string, unknown>;
+	metadata: Record<string, unknown>;
+}
 
 /**
  * Supported API versions.
@@ -488,7 +569,10 @@ export class HolocronClient {
 		 */
 		create: async (actor: ActorCreate) => {
 			const { data, error, response } = await this.client.POST("/api/v1/actors", {
-				body: actor,
+				// `verified` is optional in our wrapper but required in the
+				// generated POST body type — fill the API default at the
+				// boundary so callers don't have to pass it.
+				body: actor as components["schemas"]["ActorCreate"],
 			});
 			if (error) throw createApiError("create actor", error, response.status);
 			return data;
@@ -605,7 +689,7 @@ export class HolocronClient {
 				properties: input.properties,
 			};
 			const { data, error, response } = await this.client.POST("/api/v1/relations", {
-				body,
+				body: body as components["schemas"]["RelationCreate"],
 			});
 			if (error) throw createApiError("create relation", error, response.status);
 			return data;
@@ -856,6 +940,130 @@ export class HolocronClient {
 					total: result.total,
 				};
 			},
+		},
+	};
+
+	/**
+	 * Webhook subscription operations. Webhooks are workspace-level admin
+	 * resources — POST events on the topic filter, HMAC-signed via
+	 * `X-Holocron-Signature`, auto-disabled after consecutive failures.
+	 *
+	 * The HMAC `secret` is returned **once** at creation time only — store
+	 * it from `webhooks.create()`'s response, the API will not surface it
+	 * again.
+	 *
+	 * @category Webhooks
+	 */
+	readonly webhooks = {
+		/**
+		 * List registered webhooks (newest first).
+		 *
+		 * @example
+		 * ```typescript
+		 * const { items, total } = await client.webhooks.list();
+		 * for (const wh of items) {
+		 *   console.log(wh.url, wh.events, wh.disabled ? "DISABLED" : "active");
+		 * }
+		 * ```
+		 */
+		list: async (params?: {
+			/** Maximum number of items to return (default: 50, max: 500) */
+			limit?: number;
+			/** Number of items to skip for pagination */
+			offset?: number;
+		}) => {
+			const { data, error, response } = await this.client.GET("/api/v1/webhooks", {
+				params: { query: params },
+			});
+			if (error) throw createApiError("list webhooks", error, response.status);
+			return data;
+		},
+
+		/**
+		 * Get a single webhook by uid.
+		 * @throws NotFoundError when no webhook matches `uid`.
+		 */
+		get: async (uid: string) => {
+			const { data, error, response } = await this.client.GET("/api/v1/webhooks/{uid}", {
+				params: { path: { uid } },
+			});
+			if (error) {
+				if (response.status === 404) {
+					throw new NotFoundError(`Webhook not found: ${uid}`, {
+						resourceType: "webhook",
+						resourceUid: uid,
+						apiError: error,
+					});
+				}
+				throw createApiError(`get webhook ${uid}`, error, response.status);
+			}
+			return data;
+		},
+
+		/**
+		 * Register a new webhook. The returned `secret` is **only ever
+		 * exposed once**, on this response — the API will not surface it
+		 * again, so the client must persist it now to verify future
+		 * `X-Holocron-Signature` headers.
+		 *
+		 * @example
+		 * ```typescript
+		 * const wh = await client.webhooks.create({
+		 *   url: "https://hook.example/in",
+		 *   events: ["asset.created", "actor.updated"],
+		 *   description: "Slack notifier",
+		 * });
+		 * await secretStore.put(wh.uid, wh.secret); // do this NOW
+		 * ```
+		 */
+		create: async (webhook: WebhookCreate) => {
+			const { data, error, response } = await this.client.POST("/api/v1/webhooks", {
+				body: webhook,
+			});
+			if (error) throw createApiError("create webhook", error, response.status);
+			return data;
+		},
+
+		/**
+		 * Update a webhook subscription. Setting `disabled: false`
+		 * re-enables a webhook that was auto-disabled after consecutive
+		 * failures and clears the failure counter.
+		 */
+		update: async (uid: string, update: WebhookUpdate) => {
+			const { data, error, response } = await this.client.PUT("/api/v1/webhooks/{uid}", {
+				params: { path: { uid } },
+				body: update,
+			});
+			if (error) throw createApiError(`update webhook ${uid}`, error, response.status);
+			return data;
+		},
+
+		/** Remove a webhook subscription. */
+		delete: async (uid: string) => {
+			const { error, response } = await this.client.DELETE("/api/v1/webhooks/{uid}", {
+				params: { path: { uid } },
+			});
+			if (error) throw createApiError(`delete webhook ${uid}`, error, response.status);
+		},
+
+		/**
+		 * Fire a synthetic test event at the webhook so the receiver can
+		 * be verified end-to-end without mutating live data. The synthetic
+		 * payload carries `entity_uid="webhook-test"` and `metadata.test=true`
+		 * so receivers can filter test traffic out of analytics.
+		 *
+		 * @returns `{ delivered: boolean }` — `true` if the receiver
+		 *   responded with a 2xx, `false` if delivery failed (timeout,
+		 *   non-2xx, network error). Failures count toward auto-disable
+		 *   like real events.
+		 */
+		test: async (uid: string) => {
+			const { data, error, response } = await this.client.POST(
+				"/api/v1/webhooks/{uid}/test",
+				{ params: { path: { uid } } },
+			);
+			if (error) throw createApiError(`test webhook ${uid}`, error, response.status);
+			return data;
 		},
 	};
 }

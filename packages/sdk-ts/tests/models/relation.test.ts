@@ -15,6 +15,8 @@ const createMockClient = () => {
 					type: "owns" as const,
 					properties: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				}),
 			),
 			delete: mock(() => Promise.resolve()),
@@ -36,6 +38,8 @@ const createMockClient = () => {
 					status: "active" as const,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-01T00:00:00Z",
 				}),
 			),
@@ -50,6 +54,8 @@ const createMockClient = () => {
 					description: null,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-01T00:00:00Z",
 				}),
 			),
@@ -130,6 +136,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			expect(relation.isNew).toBe(false);
@@ -153,9 +161,12 @@ describe("RelationEntity", () => {
 			expect(relation.isNew).toBe(false);
 			expect(relation.uid).toBe("new-relation-uid");
 			expect(client.relations.create).toHaveBeenCalledWith({
+				uid: undefined,
 				from: "actor-uid",
 				to: "asset-uid",
 				type: "owns",
+				verified: true,
+				discovered_by: null,
 				properties: {},
 			});
 		});
@@ -169,6 +180,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			await expect(relation.save()).rejects.toThrow(
@@ -187,6 +200,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			await relation.delete();
@@ -219,6 +234,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: { role: "primary" },
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			const json = relation.toJSON();
@@ -230,6 +247,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: { role: "primary" },
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 		});
 	});
@@ -244,6 +263,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			expect(relation.from).toBeUndefined();
@@ -264,6 +285,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			const from = await relation.fetchFrom();
@@ -282,6 +305,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			const to = await relation.fetchTo();
@@ -305,6 +330,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			const from1 = await relation.fetchFrom();
@@ -324,6 +351,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			const to1 = await relation.fetchTo();
@@ -345,6 +374,8 @@ describe("RelationEntity", () => {
 				type: "owns",
 				properties: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 			});
 
 			expect(relation.createdAt).toBeInstanceOf(Date);

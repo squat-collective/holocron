@@ -16,6 +16,8 @@ const createMockClient = () => {
 					status: "active" as const,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-01T00:00:00Z",
 				}),
 			),
@@ -29,6 +31,8 @@ const createMockClient = () => {
 					status: "active" as const,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-02T00:00:00Z",
 				}),
 			),
@@ -42,6 +46,8 @@ const createMockClient = () => {
 					status: "active" as const,
 					metadata: {},
 					created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 					updated_at: "2024-01-03T00:00:00Z",
 				}),
 			),
@@ -120,6 +126,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -140,6 +148,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -163,6 +173,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -183,6 +195,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -207,6 +221,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -227,6 +243,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -248,6 +266,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: { key: "value" },
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -270,6 +290,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -300,6 +322,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: { key: "value" },
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -314,6 +338,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: { key: "value" },
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 		});
@@ -329,6 +355,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -368,6 +396,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -394,6 +424,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -415,6 +447,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -452,6 +486,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-01T00:00:00Z",
 			});
 
@@ -486,6 +522,8 @@ describe("AssetEntity", () => {
 				status: "active",
 				metadata: {},
 				created_at: "2024-01-01T00:00:00Z",
+				verified: true,
+				discovered_by: null,
 				updated_at: "2024-01-02T00:00:00Z",
 			});
 
