@@ -76,6 +76,13 @@ You don't normally edit `CHANGELOG.md` directly. The exceptions:
 
 The release-please PR creates the tag on merge, which dispatches the existing `release.yml` to build and publish the multi-arch images. Pre-releases on `main` cut as `vX.Y.Z-alpha.N` (configured in `release-please-config.json`); promoting to a stable release is a manual `release-as` override on the release-please PR.
 
+### Version-bump discipline
+**Don't manually `git tag` outside release-please's flow without proposing the version + scope first and getting explicit confirmation.** A `feat:` PR with a small new flag should not become a minor bump that overstates the release. release-please's auto-derivation from conventional-commit types is the default: `feat:` → minor, `fix:` → patch, others hidden. Match the bump to the actual scope, not the highest commit type that landed.
+
+When release-please's proposed version doesn't match the change's actual scope, override on the open release-please PR via a `Release-As: x.y.z` footer in a commit on its branch — never by tagging manually on the side. Manual tagging skips the changelog generation, the asset upload, and the audit trail.
+
+History note: the original `v0.1.0-alpha` was cut by hand for what was actually a patch + small feature. It was re-tagged as `v0.0.4-alpha` on 2026-04-28 and the rule above was added to prevent it from happening again.
+
 ### Tech Stack
 - **Backend:** Python 3.12+, FastAPI, Neo4j 5, Pydantic v2, pytest
 - **SDK:** TypeScript, Bun, openapi-fetch
