@@ -55,8 +55,15 @@ Each package has its own `CLAUDE.md` with package-specific rules:
 - The SDK must be **built** (`make build-sdk`) before the UI can resolve it (UI reads from `dist/`)
 
 ### Documentation
-- **Mandatory docs** — README per package, CHANGELOG, docs/ at root for cross-cutting
-- **Update together** — Docs update with code in same PR
+- **Mandatory docs** — README per package, root `CHANGELOG.md`, `docs/` at root for cross-cutting
+- **Update together** — Docs update with code in the same PR
+
+### Changelog discipline
+Every PR with user-visible impact must add an entry under `## [Unreleased]` in `CHANGELOG.md` ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format). User-visible means: anything that changes UI behavior, API surface, install/upgrade flow, configuration, or breaking changes — anything an upgrading user would want to know about. Skip for: pure refactors with no behavior change, internal test additions, dev-only tooling, typo fixes, doc-only PRs that aren't documenting a change.
+
+Entry format: one sentence, present tense, user-perspective. Group by intent — `Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`. Don't lead with the PR number; the diff already says that. Reference issues only when they add context the entry doesn't carry on its own.
+
+On release: rename `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD` and add a fresh empty `[Unreleased]` block back at the top. The release tag is what cuts the version.
 
 ### Tech Stack
 - **Backend:** Python 3.12+, FastAPI, Neo4j 5, Pydantic v2, pytest
