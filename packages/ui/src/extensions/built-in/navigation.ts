@@ -1,3 +1,4 @@
+import { Send } from "lucide-react";
 import { MapIcon } from "@/lib/icons";
 import type { Extension } from "../types";
 
@@ -22,6 +23,26 @@ export const navigationExtension: Extension = {
 			order: 10,
 			run: () => {
 				window.location.assign("/?mode=map");
+			},
+		},
+		{
+			id: "open-webhooks",
+			label: "Manage webhooks",
+			hint: "Outbound subscriptions for catalog events",
+			keywords: [
+				"webhooks",
+				"webhook",
+				"settings",
+				"integrations",
+				"hooks",
+				"events",
+				"subscribers",
+			],
+			group: "Navigate",
+			icon: Send,
+			order: 20,
+			run: () => {
+				window.location.assign("/settings/webhooks");
 			},
 		},
 	],

@@ -39,4 +39,13 @@ export const queryKeys = {
 		all: ["search"] as const,
 		results: (query: string) => [...queryKeys.search.all, query] as const,
 	},
+
+	webhooks: {
+		all: ["webhooks"] as const,
+		lists: () => [...queryKeys.webhooks.all, "list"] as const,
+		list: (filters?: { limit?: number; offset?: number }) =>
+			[...queryKeys.webhooks.lists(), filters] as const,
+		details: () => [...queryKeys.webhooks.all, "detail"] as const,
+		detail: (uid: string) => [...queryKeys.webhooks.details(), uid] as const,
+	},
 } as const;
