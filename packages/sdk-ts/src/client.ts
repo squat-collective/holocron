@@ -219,6 +219,21 @@ export type WebhookCreated = components["schemas"]["WebhookCreateResponse"];
 export type WebhookUpdate = components["schemas"]["WebhookUpdate"];
 
 /**
+ * A tag in use somewhere in the catalog, with its usage count.
+ * Counts let UI consumers prefer the dominant spelling when offering
+ * suggestions (`pii (12)` vs. `PII (1)`).
+ * @category Types
+ */
+export type TagUsage = components["schemas"]["TagUsage"];
+
+/**
+ * The `/tags` list response — every distinct tag currently in use,
+ * sorted by count descending then name ascending.
+ * @category Types
+ */
+export type TagList = components["schemas"]["TagListResponse"];
+
+/**
  * Body POSTed to subscriber URLs when an event fires. The canonical
  * `topic` (`"<entity>.<action>"`) lets receivers route by string
  * without reading both `action` and `entity_type`.
@@ -940,6 +955,43 @@ export class HolocronClient {
 					total: result.total,
 				};
 			},
+		},
+	};
+
+	/**
+	 * Tag operations — surface what's already in the catalog so forms
+	 * can autosuggest. Tags live on `Asset.metadata.tags` (free-form
+	 * strings, normalised lowercase server-side); there's no separate
+	 * tag entity.
+	 *
+	 * @category Tags
+	 */
+	readonly tags = {
+		/**
+		 * List every distinct tag currently in use across all assets,
+		 * sorted by usage count (most-used first; alphabetical
+		 * tie-break for deterministic ordering across requests).
+		 *
+		 * @example
+		 * ```typescript
+		 * const { tags } = await client.tags.list();
+		 * for (const { name, count } of tags) {
+		 *   console.log(`${name} — ${count} asset(s)`);
+		 * }
+		 * ```
+		 */
+		list: async (): Promise<TagList> => {
+			const { data, error, response } = await this.client.GET("/api/v1/tags");
+			// `/tags` takes no params, so FastAPI emits no 422 schema and
+			// openapi-fetch types `error` / `response.status` as `never` —
+			// fall through to the same shape the `health()` endpoint uses.
+			if (error)
+				throw createApiError(
+					"list tags",
+					error,
+					(response as Response | undefined)?.status,
+				);
+			return data;
 		},
 	};
 

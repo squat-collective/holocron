@@ -1447,6 +1447,28 @@
         }
       }
     },
+    "/api/v1/tags": {
+      "get": {
+        "tags": [
+          "tags"
+        ],
+        "summary": "List Tags",
+        "description": "List every tag currently in use, sorted by usage count (descending).",
+        "operationId": "list_tags_api_v1_tags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/webhooks": {
       "post": {
         "tags": [
@@ -3499,6 +3521,50 @@
         ],
         "title": "SearchResponse",
         "description": "Cross-entity search results."
+      },
+      "TagListResponse": {
+        "properties": {
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagUsage"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tags",
+          "total"
+        ],
+        "title": "TagListResponse",
+        "description": "Distinct tags currently in use across the catalog. Sorted by\ncount descending, then name ascending \u2014 so a typeahead UI can show\nthe most-common tags first while staying deterministic."
+      },
+      "TagUsage": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Lowercase tag name as stored on the asset."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Count",
+            "description": "Number of assets carrying this tag."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "TagUsage",
+        "description": "A tag that's currently in use on at least one asset, with its\ncatalog-wide usage count. Counts let UI consumers prefer the\ndominant spelling when offering suggestions (`pii (12)` vs.\n`PII (1)`)."
       },
       "ValidationError": {
         "properties": {

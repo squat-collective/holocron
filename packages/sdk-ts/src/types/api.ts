@@ -379,6 +379,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tags
+         * @description List every tag currently in use, sorted by usage count (descending).
+         */
+        get: operations["list_tags_api_v1_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -1240,6 +1260,37 @@ export interface components {
             items: (components["schemas"]["AssetHit"] | components["schemas"]["ContainerHit"] | components["schemas"]["FieldHit"] | components["schemas"]["ActorHit"] | components["schemas"]["RuleHit"])[];
             /** Total */
             total: number;
+        };
+        /**
+         * TagListResponse
+         * @description Distinct tags currently in use across the catalog. Sorted by
+         *     count descending, then name ascending — so a typeahead UI can show
+         *     the most-common tags first while staying deterministic.
+         */
+        TagListResponse: {
+            /** Tags */
+            tags: components["schemas"]["TagUsage"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * TagUsage
+         * @description A tag that's currently in use on at least one asset, with its
+         *     catalog-wide usage count. Counts let UI consumers prefer the
+         *     dominant spelling when offering suggestions (`pii (12)` vs.
+         *     `PII (1)`).
+         */
+        TagUsage: {
+            /**
+             * Name
+             * @description Lowercase tag name as stored on the asset.
+             */
+            name: string;
+            /**
+             * Count
+             * @description Number of assets carrying this tag.
+             */
+            count: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -2245,6 +2296,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tags_api_v1_tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagListResponse"];
                 };
             };
         };

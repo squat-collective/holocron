@@ -19,6 +19,7 @@ from holocron.api.routes import (
     relations,
     rules,
     search,
+    tags,
     webhooks,
 )
 from holocron.core.exceptions import (
@@ -127,4 +128,5 @@ app.include_router(rules.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(graph.router, prefix="/api/v1")
 app.include_router(plugins_router, prefix="/api/v1")
+app.include_router(tags.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
