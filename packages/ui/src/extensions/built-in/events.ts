@@ -13,10 +13,13 @@ export const eventsExtension: Extension = {
 	id: "events",
 	name: "History",
 	description: "Audit trail for the focused entity.",
-	when: (ctx) => ctx.focused !== null,
+	// Relations have no audit-trail wizard surface (events are recorded
+	// against persistent entities, not transient hover-publishes).
+	when: (ctx) =>
+		ctx.focused !== null && ctx.focused.kind !== "relation",
 	commands: (ctx) => {
 		const focused = ctx.focused;
-		if (!focused) return [];
+		if (!focused || focused.kind === "relation") return [];
 		return [
 			{
 				id: "show-history",

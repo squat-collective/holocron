@@ -54,11 +54,14 @@ export function useFocusedEntity(): FocusedEntity | null {
  *
  * Side effect: a non-null entity is also pushed onto the recents store, so
  * "Recently viewed" updates without each detail page having to opt in.
+ * Relations are skipped here — they're transient focus surfaces (hover
+ * over a row in the relations sidebar) and don't belong in "Recently
+ * viewed", which is reserved for things you actually navigated to.
  */
 export function useSetFocusedEntity(entity: FocusedEntity | null): void {
 	useEffect(() => {
 		setFocusedEntity(entity);
-		if (entity) pushRecent(entity);
+		if (entity && entity.kind !== "relation") pushRecent(entity);
 		const ours = entity;
 		return () => {
 			if (current === ours) setFocusedEntity(null);

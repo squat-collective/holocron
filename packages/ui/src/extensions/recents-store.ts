@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { FocusedEntity } from "./types";
+import type { FocusedEntity, PersistedFocusedEntity } from "./types";
 
 /**
  * Recently-viewed entity store — module-level pub/sub, no persistence.
@@ -23,7 +23,7 @@ import type { FocusedEntity } from "./types";
 
 const MAX_RECENTS = 10;
 
-let recents: FocusedEntity[] = [];
+let recents: PersistedFocusedEntity[] = [];
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -31,6 +31,10 @@ function emit(): void {
 }
 
 export function pushRecent(entity: FocusedEntity): void {
+	// Relations are transient (hover-publish) and never enter recents.
+	// Filtering at the boundary keeps the in-memory list narrow and
+	// matches PersistedFocusedEntity's contract.
+	if (entity.kind === "relation") return;
 	const uid = entity.entity.uid;
 	const filtered = recents.filter((r) => r.entity.uid !== uid);
 	const next = [entity, ...filtered].slice(0, MAX_RECENTS);
@@ -43,7 +47,7 @@ export function pushRecent(entity: FocusedEntity): void {
 	emit();
 }
 
-export function getRecents(): readonly FocusedEntity[] {
+export function getRecents(): readonly PersistedFocusedEntity[] {
 	return recents;
 }
 
@@ -60,8 +64,8 @@ function subscribe(cb: () => void): () => void {
 	};
 }
 
-const EMPTY: readonly FocusedEntity[] = [];
+const EMPTY: readonly PersistedFocusedEntity[] = [];
 
-export function useRecents(): readonly FocusedEntity[] {
+export function useRecents(): readonly PersistedFocusedEntity[] {
 	return useSyncExternalStore(subscribe, getRecents, () => EMPTY);
 }
