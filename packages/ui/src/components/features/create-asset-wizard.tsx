@@ -25,12 +25,13 @@ import {
 	Stepper,
 	useWizardAutoFocus,
 	useWizardFocus,
+	WizardBody,
+	WizardDialogContent,
 	WizardFocusProvider,
 } from "@/components/features/wizard-shared";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
-	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
@@ -171,7 +172,7 @@ export function CreateAssetWizard({
 
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent
+			<WizardDialogContent
 				className="sm:max-w-lg bg-card/90 backdrop-blur-xl border-primary/20"
 				onOpenAutoFocus={(event) => {
 					// Focus is managed by useWizardAutoFocus hooks inside the tree —
@@ -205,7 +206,7 @@ export function CreateAssetWizard({
 						/>
 					)}
 				</WizardFocusProvider>
-			</DialogContent>
+			</WizardDialogContent>
 		</Dialog>
 	);
 }
@@ -382,8 +383,11 @@ function BaseFlow({
 				</DialogDescription>
 			</DialogHeader>
 
-			<Stepper current={stepIndex} total={totalSteps} />
+			<div className="pt-3">
+				<Stepper current={stepIndex} total={totalSteps} />
+			</div>
 
+			<WizardBody>
 			<div
 				key={step}
 				className="min-h-[240px] animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
@@ -429,6 +433,7 @@ function BaseFlow({
 				)}
 				{step === "review" && <StepReview data={data} />}
 			</div>
+			</WizardBody>
 
 			<KeyboardHint step={step} canBack={stepIndex > 0} />
 
@@ -612,6 +617,7 @@ function EnrichmentHub({
 				<DialogDescription className="sr-only">Add more information to the asset</DialogDescription>
 			</DialogHeader>
 
+			<WizardBody>
 			<div className="space-y-4 pt-1">
 				<div>
 					<h3 className="text-xl font-semibold">Want to add more?</h3>
@@ -679,6 +685,7 @@ function EnrichmentHub({
 					</div>
 				)}
 			</div>
+			</WizardBody>
 
 			<div className="text-[11px] text-muted-foreground/70 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
 				<Kbd>↑↓</Kbd> choose · <Kbd>↵</Kbd> open · <Kbd>⌃↵</Kbd> finish
@@ -1188,7 +1195,9 @@ function StepMaintainers({
 			</div>
 
 			{value.length > 0 && (
-				<div className="flex flex-wrap gap-1.5">
+				// Bound the chip stack so a long pick list scrolls within
+				// itself rather than crowding out the search input below.
+				<div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
 					{value.map((m, i) => {
 						const Icon = getActorTypeIcon(m.actorType);
 						return (

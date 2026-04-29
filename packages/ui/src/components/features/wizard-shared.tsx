@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	type ComponentProps,
 	createContext,
 	type KeyboardEvent,
 	type ReactNode,
@@ -13,6 +14,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
 	type GridNavOutcome,
@@ -23,6 +25,79 @@ import {
 
 export type { GridNavOutcome, ListboxNavOutcome };
 export { computeGridNavOutcome, computeListboxNavOutcome };
+
+/* ------------------------------------------------------------------ */
+/* Wizard scroll layout — pin header + footer, scroll only the body.   */
+/*                                                                    */
+/* `DialogContent` defaults to a single `overflow-y-auto` viewport     */
+/* spanning the whole dialog. Once a wizard has growing content       */
+/* (multi-pick chips, long picker results, tail "create new" rows),   */
+/* that single scroll region pushes the title + stepper + footer      */
+/* off-screen as the user scrolls — and on shorter laptop viewports   */
+/* the primary CTA can leave the visible area entirely (#33).         */
+/*                                                                    */
+/* `WizardDialogContent` swaps the primitive's grid/overflow defaults */
+/* for a flex-column layout and disables the inner scroll. Then       */
+/* `WizardBody` is the only scroll region inside, leaving the         */
+/* header (above) and footer (below) pinned.                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Drop-in replacement for `<DialogContent>` for any multi-step or
+ * picker-heavy wizard.
+ *
+ * Layout: `flex flex-col`, `max-h` preserved from the primitive, but
+ * `overflow` is moved inward. Use `<WizardBody>` for the section that
+ * should scroll (typically the step body / picker / chip list). Place
+ * `<DialogHeader>` above and `<DialogFooter>` below — they stay pinned.
+ */
+export function WizardDialogContent({
+	className,
+	children,
+	...props
+}: ComponentProps<typeof DialogContent>) {
+	return (
+		<DialogContent
+			className={cn(
+				// Reset the inherited grid + inner scroll, replace with a
+				// flex column whose only scroll region is `<WizardBody>`.
+				"!grid-cols-none flex flex-col gap-0 overflow-hidden",
+				className,
+			)}
+			{...props}
+		>
+			{children}
+		</DialogContent>
+	);
+}
+
+/**
+ * The single scroll region inside a `<WizardDialogContent>`. Renders
+ * its children inside a `flex-1 min-h-0 overflow-y-auto` div so the
+ * surrounding header / footer stay pinned even when the body grows.
+ *
+ * `gap-4` matches the gap `<DialogContent>` used to apply across the
+ * whole dialog so the visual rhythm between header / body / footer
+ * stays unchanged on the converted wizards.
+ */
+export function WizardBody({
+	className,
+	children,
+	...props
+}: ComponentProps<"div">) {
+	return (
+		<div
+			data-slot="wizard-body"
+			className={cn(
+				"flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 py-1 -mx-1 px-1",
+				className,
+			)}
+			{...props}
+		>
+			{children}
+		</div>
+	);
+}
 
 /**
  * Small shared primitives used by every wizard so the visual language stays

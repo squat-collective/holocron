@@ -10,12 +10,13 @@ import {
 	Stepper,
 	useWizardAutoFocus,
 	useWizardFocus,
+	WizardBody,
+	WizardDialogContent,
 	WizardFocusProvider,
 } from "@/components/features/wizard-shared";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
-	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
@@ -251,7 +252,7 @@ function ApplyFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 				if (!nextOpen) cancel();
 			}}
 		>
-			<DialogContent
+			<WizardDialogContent
 				className="sm:max-w-lg bg-card/90 backdrop-blur-xl border-primary/20"
 				onKeyDown={handleDialogKey}
 				onOpenAutoFocus={(e) => e.preventDefault()}
@@ -266,8 +267,11 @@ function ApplyFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 					</DialogDescription>
 				</DialogHeader>
 
-				<Stepper current={stepIndex} total={steps.length} />
+				<div className="pt-3">
+					<Stepper current={stepIndex} total={steps.length} />
+				</div>
 
+				<WizardBody>
 				<div
 					key={step}
 					className="min-h-[200px] animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
@@ -308,6 +312,7 @@ function ApplyFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 					)}
 					{step === "review" && <StepReview data={data} assetName={frame.params.assetName} />}
 				</div>
+				</WizardBody>
 
 				<HintStrip step={step} canBack={stepIndex > 0} />
 
@@ -345,7 +350,7 @@ function ApplyFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 						)}
 					</div>
 				</DialogFooter>
-			</DialogContent>
+			</WizardDialogContent>
 		</Dialog>
 	);
 }
