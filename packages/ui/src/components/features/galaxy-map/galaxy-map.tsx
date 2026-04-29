@@ -330,11 +330,17 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	const palette = usePalette();
 	const fgRef = useRef<FgHandle | null>(null);
 
-	// Hovered node + last cursor position — drive a custom React tooltip
-	// instead of the library's built-in HTML one, which appears at a fixed
-	// offset from the node and feels detached from the cursor.
+	// Hovered node — drives a custom React tooltip instead of the
+	// library's built-in HTML one, which appears at a fixed offset from
+	// the node and feels detached from the cursor.
+	//
+	// The cursor position is intentionally NOT React state — `HoverCard`
+	// listens to mousemove on `containerRef` directly and writes the
+	// position to its own DOM via a ref. Lifting cursor state onto this
+	// component re-rendered the whole `<ForceGraph3D>` tree (and re-ran
+	// every link callback) on every pixel of mouse motion — the biggest
+	// single cause of the lag in #25.
 	const [hoveredNode, setHoveredNode] = useState<FgNode | null>(null);
-	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
 
 	// Keyboard-driven focus — arrow-selected hit drives the same edge
 	// glow + camera fly the mouse hover does. Mouse hover wins so the
@@ -774,6 +780,107 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		return () => document.removeEventListener("keydown", onKey);
 	}, [hoveredNode, toggleLock]);
 
+	// Memoize every per-link callback that <ForceGraph3D> reads — the
+	// library re-evaluates them for every link on every render, so a
+	// fresh closure per render = O(N) JS work per render even when the
+	// link styling didn't change. Deps cover the only inputs each one
+	// actually depends on; everything else is captured stably.
+	const linkColor = useCallback(
+		(l: unknown) => {
+			const link = l as {
+				source: string | { id: string };
+				target: string | { id: string };
+				type: string;
+			};
+			const src =
+				typeof link.source === "string" ? link.source : link.source.id;
+			const tgt =
+				typeof link.target === "string" ? link.target : link.target.id;
+			const base = relationColor(link.type, palette);
+			if (!focusSet) return withAlpha(base, 0.45);
+			if (focusSet.has(src) && focusSet.has(tgt)) return withAlpha(base, 0.95);
+			return withAlpha(base, 0.22);
+		},
+		[focusSet, palette],
+	);
+
+	const linkWidth = useCallback(
+		(l: unknown) => {
+			if (!focusSet) return 0.7;
+			const link = l as {
+				source: string | { id: string };
+				target: string | { id: string };
+			};
+			const src =
+				typeof link.source === "string" ? link.source : link.source.id;
+			const tgt =
+				typeof link.target === "string" ? link.target : link.target.id;
+			return focusSet.has(src) && focusSet.has(tgt) ? 1.6 : 0.5;
+		},
+		[focusSet],
+	);
+
+	// Default particle count: 1 (was 2). Two animated particles per
+	// edge with no focus active was a constant frame-budget tax even
+	// on tiny graphs — cutting it in half keeps the "alive" feel of
+	// the unfocused map while halving the per-frame particle work.
+	const linkDirectionalParticles = useCallback(
+		(l: unknown) => {
+			if (!focusSet) return 1;
+			const link = l as {
+				source: string | { id: string };
+				target: string | { id: string };
+			};
+			const src =
+				typeof link.source === "string" ? link.source : link.source.id;
+			const tgt =
+				typeof link.target === "string" ? link.target : link.target.id;
+			return focusSet.has(src) && focusSet.has(tgt) ? 8 : 1;
+		},
+		[focusSet],
+	);
+
+	const linkDirectionalParticleWidth = useCallback(
+		(l: unknown) => {
+			if (!focusSet) return 2.4;
+			const link = l as {
+				source: string | { id: string };
+				target: string | { id: string };
+			};
+			const src =
+				typeof link.source === "string" ? link.source : link.source.id;
+			const tgt =
+				typeof link.target === "string" ? link.target : link.target.id;
+			return focusSet.has(src) && focusSet.has(tgt) ? 5 : 1.6;
+		},
+		[focusSet],
+	);
+
+	const linkDirectionalParticleColor = useCallback(
+		(l: unknown) => {
+			const link = l as { type: string };
+			return relationColor(link.type, palette);
+		},
+		[palette],
+	);
+
+	// `nodeLabel="" ` would also work but the library types insist on a
+	// fn. Stable identity here means no internal re-evaluation.
+	const emptyNodeLabel = useCallback(() => "", []);
+
+	const handleNodeHover = useCallback(
+		(n: unknown) => setHoveredNode((n as FgNode | null) ?? null),
+		[],
+	);
+
+	const handleNodeClick = useCallback(
+		(n: unknown) => {
+			const node = n as FgNode;
+			router.push(hrefFor(node));
+		},
+		[router],
+	);
+
 	if (isLoading) {
 		return (
 			<div className="relative w-full h-full flex items-center justify-center">
@@ -786,14 +893,8 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			<div
 				ref={containerRef}
 				className="relative isolate w-full h-full overflow-hidden rounded-xl bg-[#050613]"
-				onMouseMove={(e) => {
-					if (!containerRef.current) return;
-					const rect = containerRef.current.getBoundingClientRect();
-					setCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-				}}
 				onMouseLeave={() => {
 					setHoveredNode(null);
-					setCursor(null);
 				}}
 			>
 				<ForceGraph3D
@@ -829,40 +930,9 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				nodeThreeObjectExtend={false}
 				// Built-in HTML tooltip disabled — we render our own overlay
 				// that follows the cursor (see <HoverCard /> below).
-				nodeLabel={() => ""}
-				linkColor={(l: unknown) => {
-					const link = l as {
-						source: string | { id: string };
-						target: string | { id: string };
-						type: string;
-					};
-					const src =
-						typeof link.source === "string" ? link.source : link.source.id;
-					const tgt =
-						typeof link.target === "string" ? link.target : link.target.id;
-					const base = relationColor(link.type, palette);
-					// No focus active → every edge gets its base color.
-					if (!focusSet) return withAlpha(base, 0.45);
-					// Both endpoints are in the focused cluster → highlight.
-					if (focusSet.has(src) && focusSet.has(tgt)) {
-						return withAlpha(base, 0.95);
-					}
-					// Off-cluster edges soften but stay readable so the
-					// surrounding lineage isn't lost.
-					return withAlpha(base, 0.22);
-				}}
-				linkWidth={(l: unknown) => {
-					if (!focusSet) return 0.7;
-					const link = l as {
-						source: string | { id: string };
-						target: string | { id: string };
-					};
-					const src =
-						typeof link.source === "string" ? link.source : link.source.id;
-					const tgt =
-						typeof link.target === "string" ? link.target : link.target.id;
-					return focusSet.has(src) && focusSet.has(tgt) ? 1.6 : 0.5;
-				}}
+				nodeLabel={emptyNodeLabel}
+				linkColor={linkColor}
+				linkWidth={linkWidth}
 				// Don't multiply alpha at the renderer level — the per-link
 				// opacity is already baked into linkColor.
 				linkOpacity={1}
@@ -871,41 +941,13 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				// colour. Count + size scale up on focused edges so the
 				// active cluster reads as a stream of bright dashes
 				// while the surrounding galaxy keeps a subtler pulse.
-				linkDirectionalParticles={(l: unknown) => {
-					if (!focusSet) return 2;
-					const link = l as {
-						source: string | { id: string };
-						target: string | { id: string };
-					};
-					const src =
-						typeof link.source === "string" ? link.source : link.source.id;
-					const tgt =
-						typeof link.target === "string" ? link.target : link.target.id;
-					return focusSet.has(src) && focusSet.has(tgt) ? 8 : 1;
-				}}
+				linkDirectionalParticles={linkDirectionalParticles}
 				linkDirectionalParticleSpeed={0.006}
-				linkDirectionalParticleWidth={(l: unknown) => {
-					if (!focusSet) return 2.4;
-					const link = l as {
-						source: string | { id: string };
-						target: string | { id: string };
-					};
-					const src =
-						typeof link.source === "string" ? link.source : link.source.id;
-					const tgt =
-						typeof link.target === "string" ? link.target : link.target.id;
-					return focusSet.has(src) && focusSet.has(tgt) ? 5 : 1.6;
-				}}
+				linkDirectionalParticleWidth={linkDirectionalParticleWidth}
 				linkDirectionalParticleResolution={6}
-				linkDirectionalParticleColor={(l: unknown) => {
-					const link = l as { type: string };
-					return relationColor(link.type, palette);
-				}}
-				onNodeHover={(n: unknown) => setHoveredNode((n as FgNode | null) ?? null)}
-				onNodeClick={(n: unknown) => {
-					const node = n as FgNode;
-					router.push(hrefFor(node));
-				}}
+				linkDirectionalParticleColor={linkDirectionalParticleColor}
+				onNodeHover={handleNodeHover}
+				onNodeClick={handleNodeClick}
 				enableNodeDrag={false}
 				enableNavigationControls={true}
 			/>
@@ -992,9 +1034,12 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 					Recenter
 				</button>
 
-				{/* Cursor-following hover card — only when hovering a node */}
-				{hoveredNode && cursor && (
-					<HoverCard node={hoveredNode} x={cursor.x} y={cursor.y} />
+				{/* Cursor-following hover card — only when hovering a node.
+				    HoverCard tracks the cursor via a DOM listener on
+				    `containerRef`, so this component never re-renders on
+				    mousemove. */}
+				{hoveredNode && (
+					<HoverCard node={hoveredNode} containerRef={containerRef} />
 				)}
 
 				<MapLegend />
@@ -1136,24 +1181,57 @@ function NodeInfoPanel({
 
 /**
  * Small floating card pinned just below the cursor while a node is
- * hovered. Lives outside the WebGL canvas so it can use Tailwind /
- * shadcn styling and feel native to the rest of the app.
+ * hovered.
+ *
+ * The card tracks the cursor via a DOM listener that mutates inline
+ * styles directly on the wrapper div — pulling the cursor through
+ * React state at 60 Hz on the parent re-rendered the whole canvas
+ * tree (including every memoized link callback) for each pixel of
+ * mouse motion, which was the single biggest cause of the lag in
+ * #25. With a ref-driven update only this tiny wrapper changes per
+ * frame, leaving `<ForceGraph3D>` untouched.
  */
 function HoverCard({
 	node,
-	x,
-	y,
+	containerRef,
 }: {
 	node: FgNode;
-	x: number;
-	y: number;
+	containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
+	const cardRef = useRef<HTMLDivElement | null>(null);
+	useEffect(() => {
+		const card = cardRef.current;
+		const container = containerRef.current;
+		if (!card || !container) return;
+		const onMove = (e: MouseEvent) => {
+			const rect = container.getBoundingClientRect();
+			const x = e.clientX - rect.left;
+			const y = e.clientY - rect.top;
+			card.style.left = `${x + 14}px`;
+			card.style.top = `${y + 14}px`;
+			if (card.style.opacity !== "1") card.style.opacity = "1";
+		};
+		const onLeave = () => {
+			card.style.opacity = "0";
+		};
+		container.addEventListener("mousemove", onMove);
+		container.addEventListener("mouseleave", onLeave);
+		return () => {
+			container.removeEventListener("mousemove", onMove);
+			container.removeEventListener("mouseleave", onLeave);
+		};
+	}, [containerRef]);
+
 	return (
 		<div
-			className="pointer-events-none absolute z-10 rounded-md border border-primary/25 bg-background/90 backdrop-blur-sm px-3 py-2 shadow-xl shadow-primary/10"
+			ref={cardRef}
+			className="pointer-events-none absolute z-10 rounded-md border border-primary/25 bg-background/90 backdrop-blur-sm px-3 py-2 shadow-xl shadow-primary/10 transition-opacity duration-75"
 			style={{
-				left: x + 14,
-				top: y + 14,
+				// Hidden until the first mousemove writes the position; otherwise
+				// the card flashes at (0,0) on hover-enter for one frame.
+				left: -9999,
+				top: -9999,
+				opacity: 0,
 				maxWidth: 240,
 			}}
 		>
