@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from holocron.api.schemas.assets import (
     AssetCreate,
     AssetListResponse,
     AssetResponse,
+    AssetSchemaChildCreate,
+    AssetTreeNode,
     AssetType,
     AssetUpdate,
 )
 from holocron.api.schemas.events import EntityType, EventAction
+from holocron.api.schemas.relations import RelationCreate, RelationType
 from holocron.core.exceptions import NotFoundError
 from holocron.core.services.asset_schema_projection import (
     materialize_schema,
@@ -25,6 +29,7 @@ from holocron.core.services.embedding_service import (
 from holocron.db.connection import Neo4jDriver
 from holocron.db.repositories.asset_repo import AssetRepository
 from holocron.db.repositories.event_repo import EventRepository
+from holocron.db.repositories.relation_repo import RelationRepository
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +42,7 @@ class AssetService:
         asset_repo: AssetRepository,
         event_repo: EventRepository,
         driver: Neo4jDriver,
+        relation_repo: RelationRepository | None = None,
     ) -> None:
         """Initialize service with repositories.
 
@@ -44,10 +50,14 @@ class AssetService:
             asset_repo: Repository for asset operations.
             event_repo: Repository for event logging.
             driver: Neo4j driver for transaction management.
+            relation_repo: Optional relation repository, required only by
+                `bulk_create_schema` to wire `contains` edges between
+                parent and children.
         """
         self.asset_repo = asset_repo
         self.event_repo = event_repo
         self.driver = driver
+        self.relation_repo = relation_repo
 
     async def create(self, asset: AssetCreate) -> AssetResponse:
         """Create a new asset with audit logging."""
@@ -154,6 +164,114 @@ class AssetService:
                 changes={"asset": current.model_dump(mode="json")},
                 tx=tx,
             )
+
+    async def tree(self, uid: str, depth: int) -> AssetTreeNode:
+        """Walk the `CONTAINS` tree rooted at `uid` up to `depth` levels.
+
+        Returns the root asset with its descendants nested as
+        `AssetTreeNode`. Descendants beyond `depth` are not fetched —
+        their parent's `children` list is empty even if more exist.
+        """
+        root = await self.get(uid)  # raises NotFoundError on miss
+        flat: Sequence[tuple[str, AssetResponse]] = (
+            await self.asset_repo.get_descendants(uid, depth=depth)
+        )
+
+        nodes: dict[str, AssetTreeNode] = {root.uid: AssetTreeNode(asset=root)}
+        # Records arrive ordered by depth so each parent already lives
+        # in the dict by the time we reach its children — single pass.
+        for parent_uid, child in flat:
+            child_node = AssetTreeNode(asset=child)
+            nodes[child.uid] = child_node
+            parent = nodes.get(parent_uid)
+            if parent is not None:
+                parent.children.append(child_node)
+
+        return nodes[root.uid]
+
+    async def bulk_create_schema(
+        self,
+        parent_uid: str,
+        children: Sequence[AssetSchemaChildCreate],
+    ) -> AssetTreeNode:
+        """Create a nested tree of assets under `parent_uid` in one shot.
+
+        Each child becomes a real `:Asset` node, linked to its parent
+        with a `contains` relation. Children may themselves declare
+        `children` for arbitrary nesting. Audit events are logged per
+        asset (the wiring `contains` relations are implicit and not
+        individually evented — the parent → child relationship is
+        observable via the resulting graph).
+
+        Raises NotFoundError if the parent doesn't exist.
+        """
+        if self.relation_repo is None:
+            raise RuntimeError(
+                "AssetService.bulk_create_schema requires a relation_repo",
+            )
+
+        async with self.driver.transaction() as tx:
+            root = await self.asset_repo.get_by_uid(parent_uid, tx=tx)
+            if root is None:
+                raise NotFoundError(f"Asset {parent_uid} not found")
+
+            root_node = AssetTreeNode(asset=root)
+            await self._materialize_children(
+                parent=root_node,
+                children=children,
+                tx=tx,
+            )
+            return root_node
+
+    async def _materialize_children(
+        self,
+        parent: AssetTreeNode,
+        children: Sequence[AssetSchemaChildCreate],
+        tx: Any,
+    ) -> None:
+        """Recursive walker for `bulk_create_schema`."""
+        for spec in children:
+            asset = await self.asset_repo.create(
+                AssetCreate(
+                    uid=None,
+                    type=spec.type,
+                    name=spec.name,
+                    description=spec.description,
+                    location=spec.location,
+                    status=spec.status,
+                    verified=spec.verified,
+                    discovered_by=spec.discovered_by,
+                    metadata=spec.metadata,
+                ),
+                tx=tx,
+            )
+            await self.event_repo.log(
+                action=EventAction.CREATED,
+                entity_type=EntityType.ASSET,
+                entity_uid=asset.uid,
+                changes={"asset": spec.model_dump(mode="json", exclude={"children"})},
+                tx=tx,
+            )
+            await self._embed_asset(asset, tx=tx)
+            assert self.relation_repo is not None  # narrowed by caller
+            await self.relation_repo.create(
+                RelationCreate(
+                    uid=None,
+                    from_uid=parent.asset.uid,
+                    to_uid=asset.uid,
+                    type=RelationType.CONTAINS,
+                ),
+                tx=tx,
+            )
+
+            child_node = AssetTreeNode(asset=asset)
+            parent.children.append(child_node)
+            if spec.children:
+                await self._materialize_children(
+                    parent=child_node,
+                    children=spec.children,
+                    tx=tx,
+                )
 
     def _compute_changes(
         self,

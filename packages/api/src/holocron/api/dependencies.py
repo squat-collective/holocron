@@ -97,9 +97,15 @@ def get_asset_service(
     asset_repo: Annotated[AssetRepository, Depends(get_asset_repository)],
     event_repo: Annotated[EventRepository, Depends(get_event_repository)],
     driver: Annotated[Neo4jDriver, Depends(get_neo4j_driver)],
+    relation_repo: Annotated[RelationRepository, Depends(get_relation_repository)],
 ) -> AssetService:
     """Get the asset service with injected dependencies."""
-    return AssetService(asset_repo=asset_repo, event_repo=event_repo, driver=driver)
+    return AssetService(
+        asset_repo=asset_repo,
+        event_repo=event_repo,
+        driver=driver,
+        relation_repo=relation_repo,
+    )
 
 
 def get_actor_service(

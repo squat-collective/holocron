@@ -80,6 +80,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/{uid}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Asset Tree
+         * @description Walk the `contains` tree rooted at this asset.
+         *
+         *     Only `:Asset` nodes are returned — the `:Container/:Field`
+         *     projection materialised from `metadata.schema` is filtered out.
+         */
+        get: operations["get_asset_tree_api_v1_assets__uid__tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assets/{uid}/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Asset Schema
+         * @description Bulk-create a nested tree of child assets under this asset.
+         *
+         *     Each child is created as a real `:Asset` node and linked to its
+         *     parent via a `contains` relation. Children may declare their own
+         *     `children` for arbitrary nesting in a single call.
+         */
+        post: operations["create_asset_schema_api_v1_assets__uid__schema_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/actors": {
         parameters: {
             query?: never;
@@ -726,17 +773,75 @@ export interface components {
             updated_at: string;
         };
         /**
+         * AssetSchemaChildCreate
+         * @description A child node passed to the bulk-schema endpoint.
+         *
+         *     Same shape as `AssetCreate` minus the optional UID, plus a `children`
+         *     list for nested creation. Each child is created as a new asset and
+         *     linked to its parent via a `contains` relation.
+         */
+        AssetSchemaChildCreate: {
+            type: components["schemas"]["AssetType"];
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Location */
+            location?: string | null;
+            /** @default active */
+            status: components["schemas"]["AssetStatus"];
+            /**
+             * Verified
+             * @default true
+             */
+            verified: boolean;
+            /** Discovered By */
+            discovered_by?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Children */
+            children?: components["schemas"]["AssetSchemaChildCreate"][];
+        };
+        /**
+         * AssetSchemaCreate
+         * @description Request body for `POST /assets/{uid}/schema`.
+         */
+        AssetSchemaCreate: {
+            /** Children */
+            children: components["schemas"]["AssetSchemaChildCreate"][];
+        };
+        /**
          * AssetStatus
          * @description Asset lifecycle status.
          * @enum {string}
          */
         AssetStatus: "active" | "deprecated" | "draft";
         /**
+         * AssetTreeNode
+         * @description An asset returned as part of a `contains` tree walk.
+         *
+         *     `children` is populated up to the requested depth (1 = direct
+         *     children, N = N levels). Beyond the requested depth, children is an
+         *     empty list — even if more descendants exist in the graph.
+         */
+        AssetTreeNode: {
+            asset: components["schemas"]["AssetResponse"];
+            /** Children */
+            children?: components["schemas"]["AssetTreeNode"][];
+        };
+        /**
          * AssetType
          * @description Valid asset types.
+         *
+         *     Hierarchical members (schema/table/column, sheet/page/visual,
+         *     measure/dimension/model, endpoint/field) are linked to their parent
+         *     via a `contains` relation, which lets clients walk an asset's tree
+         *     via `GET /assets/{uid}/tree`.
          * @enum {string}
          */
-        AssetType: "dataset" | "report" | "process" | "system";
+        AssetType: "dataset" | "report" | "process" | "system" | "schema" | "table" | "view" | "column" | "sheet" | "page" | "visual" | "measure" | "dimension" | "model" | "endpoint" | "field";
         /**
          * AssetUpdate
          * @description Request body for updating an asset.
@@ -1608,6 +1713,75 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_asset_tree_api_v1_assets__uid__tree_get: {
+        parameters: {
+            query?: {
+                /** @description Number of `contains` levels to walk (1 = direct children). */
+                depth?: number;
+            };
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetTreeNode"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_asset_schema_api_v1_assets__uid__schema_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetSchemaCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetTreeNode"];
+                };
             };
             /** @description Validation Error */
             422: {

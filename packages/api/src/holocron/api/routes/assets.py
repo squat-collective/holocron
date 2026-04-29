@@ -8,6 +8,8 @@ from holocron.api.schemas.assets import (
     AssetCreate,
     AssetListResponse,
     AssetResponse,
+    AssetSchemaCreate,
+    AssetTreeNode,
     AssetType,
     AssetUpdate,
 )
@@ -88,3 +90,43 @@ async def delete_asset(
 ) -> None:
     """Delete an asset."""
     await service.delete(uid)
+
+
+@router.get("/{uid}/tree", response_model=AssetTreeNode)
+async def get_asset_tree(
+    uid: str,
+    service: AssetServiceDep,
+    depth: int = Query(
+        1,
+        ge=1,
+        le=10,
+        description="Number of `contains` levels to walk (1 = direct children).",
+    ),
+) -> AssetTreeNode:
+    """Walk the `contains` tree rooted at this asset.
+
+    Only `:Asset` nodes are returned — the `:Container/:Field`
+    projection materialised from `metadata.schema` is filtered out.
+    """
+    return await service.tree(uid, depth=depth)
+
+
+@router.post(
+    "/{uid}/schema",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetTreeNode,
+)
+@limiter.limit("10/minute")
+async def create_asset_schema(
+    request: Request,
+    uid: str,
+    body: AssetSchemaCreate,
+    service: AssetServiceDep,
+) -> AssetTreeNode:
+    """Bulk-create a nested tree of child assets under this asset.
+
+    Each child is created as a real `:Asset` node and linked to its
+    parent via a `contains` relation. Children may declare their own
+    `children` for arbitrary nesting in a single call.
+    """
+    return await service.bulk_create_schema(uid, body.children)

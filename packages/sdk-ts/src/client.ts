@@ -38,7 +38,9 @@ export type AssetCreate = Omit<
 export type AssetUpdate = components["schemas"]["AssetUpdate"];
 
 /**
- * Valid asset types: `dataset`, `report`, `process`, `system`.
+ * Valid asset types — including the hierarchical members (`schema`,
+ * `table`, `column`, `sheet`, `page`, `visual`, `measure`, `dimension`,
+ * `model`, `endpoint`, `field`) that can be nested via `contains`.
  * @category Types
  */
 export type AssetType = components["schemas"]["AssetType"];
@@ -48,6 +50,26 @@ export type AssetType = components["schemas"]["AssetType"];
  * @category Types
  */
 export type AssetStatus = components["schemas"]["AssetStatus"];
+
+/**
+ * A node in an asset's `contains` tree returned from
+ * `client.assets.tree()`.
+ * @category Types
+ */
+export type AssetTreeNode = components["schemas"]["AssetTreeNode"];
+
+/**
+ * Body for `client.assets.createSchema()` — a nested tree of child
+ * asset specs.
+ * @category Types
+ */
+export type AssetSchemaCreate = components["schemas"]["AssetSchemaCreate"];
+
+/**
+ * One spec entry inside `AssetSchemaCreate.children`.
+ * @category Types
+ */
+export type AssetSchemaChildCreate = components["schemas"]["AssetSchemaChildCreate"];
 
 /**
  * An actor (person or group) response from the API.
@@ -508,6 +530,60 @@ export class HolocronClient {
 				params: { path: { uid } },
 			});
 			if (error) throw createApiError(`delete asset ${uid}`, error, response.status);
+		},
+
+		/**
+		 * Walk the `contains` tree rooted at this asset.
+		 *
+		 * Hierarchical assets (table → column, sheet → visual, etc.) are
+		 * exposed as a nested tree. `:Container/:Field` schema-projection
+		 * nodes are filtered out — only authored `:Asset` nodes appear.
+		 *
+		 * @param uid - The asset's unique identifier
+		 * @param params - Tree depth (default 1, max 10)
+		 * @example
+		 * ```typescript
+		 * const tree = await client.assets.tree('warehouse', { depth: 2 });
+		 * for (const tableNode of tree.children) {
+		 *   for (const col of tableNode.children) console.log(col.asset.name);
+		 * }
+		 * ```
+		 */
+		tree: async (uid: string, params?: { depth?: number }) => {
+			const { data, error, response } = await this.client.GET("/api/v1/assets/{uid}/tree", {
+				params: { path: { uid }, query: { depth: params?.depth } },
+			});
+			if (error) throw createApiError(`get asset tree ${uid}`, error, response.status);
+			return data;
+		},
+
+		/**
+		 * Bulk-create a nested tree of child assets.
+		 *
+		 * Each child becomes a real asset linked to its parent via a
+		 * `contains` relation. Children may declare their own `children`
+		 * for arbitrary nesting in a single call.
+		 *
+		 * @example
+		 * ```typescript
+		 * await client.assets.createSchema('warehouse', {
+		 *   children: [{
+		 *     type: 'table',
+		 *     name: 'orders',
+		 *     children: [
+		 *       { type: 'column', name: 'order_id', metadata: { data_type: 'integer' } },
+		 *     ],
+		 *   }],
+		 * });
+		 * ```
+		 */
+		createSchema: async (uid: string, body: components["schemas"]["AssetSchemaCreate"]) => {
+			const { data, error, response } = await this.client.POST("/api/v1/assets/{uid}/schema", {
+				params: { path: { uid } },
+				body,
+			});
+			if (error) throw createApiError(`create asset schema ${uid}`, error, response.status);
+			return data;
 		},
 	};
 
@@ -986,11 +1062,7 @@ export class HolocronClient {
 			// openapi-fetch types `error` / `response.status` as `never` —
 			// fall through to the same shape the `health()` endpoint uses.
 			if (error)
-				throw createApiError(
-					"list tags",
-					error,
-					(response as Response | undefined)?.status,
-				);
+				throw createApiError("list tags", error, (response as Response | undefined)?.status);
 			return data;
 		},
 	};
@@ -1110,10 +1182,9 @@ export class HolocronClient {
 		 *   like real events.
 		 */
 		test: async (uid: string) => {
-			const { data, error, response } = await this.client.POST(
-				"/api/v1/webhooks/{uid}/test",
-				{ params: { path: { uid } } },
-			);
+			const { data, error, response } = await this.client.POST("/api/v1/webhooks/{uid}/test", {
+				params: { path: { uid } },
+			});
 			if (error) throw createApiError(`test webhook ${uid}`, error, response.status);
 			return data;
 		},

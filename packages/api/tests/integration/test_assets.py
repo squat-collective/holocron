@@ -304,3 +304,182 @@ class TestDeleteAsset:
         response = await client.delete("/api/v1/assets/nonexistent-uid")
 
         assert response.status_code == 404
+
+
+class TestHierarchicalAssetTypes:
+    """Tests for the hierarchical AssetType members.
+
+    These cover the new schema/table/column, sheet/page/visual etc. types
+    introduced for issue #2 (Hierarchical Assets).
+    """
+
+    async def test_create_column_asset_returns_201(self, client: AsyncClient) -> None:
+        """`column` is a valid AssetType after the hierarchy extension."""
+        response = await client.post(
+            "/api/v1/assets",
+            json={"type": "column", "name": "email", "metadata": {"data_type": "string", "pii": True}},
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["type"] == "column"
+        assert body["metadata"]["pii"] is True
+
+    async def test_list_filter_by_new_type(self, client: AsyncClient) -> None:
+        """The list filter should accept the new hierarchical types."""
+        await client.post("/api/v1/assets", json={"type": "table", "name": "orders"})
+        await client.post("/api/v1/assets", json={"type": "column", "name": "order_id"})
+
+        response = await client.get("/api/v1/assets?type=column")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["items"][0]["name"] == "order_id"
+
+
+class TestAssetTree:
+    """Tests for GET /api/v1/assets/{uid}/tree."""
+
+    async def _create(self, client: AsyncClient, type_: str, name: str) -> str:
+        resp = await client.post("/api/v1/assets", json={"type": type_, "name": name})
+        assert resp.status_code == 201
+        return resp.json()["uid"]
+
+    async def _link(self, client: AsyncClient, parent: str, child: str) -> None:
+        resp = await client.post(
+            "/api/v1/relations",
+            json={"from_uid": parent, "to_uid": child, "type": "contains"},
+        )
+        assert resp.status_code == 201
+
+    async def test_tree_returns_root_with_no_children(self, client: AsyncClient) -> None:
+        """A leaf asset returns itself with an empty children list."""
+        uid = await self._create(client, "dataset", "lonely")
+
+        response = await client.get(f"/api/v1/assets/{uid}/tree")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["asset"]["uid"] == uid
+        assert body["children"] == []
+
+    async def test_tree_walks_contains_one_level(self, client: AsyncClient) -> None:
+        """Direct children appear under the root."""
+        ds = await self._create(client, "dataset", "sales")
+        col_a = await self._create(client, "column", "amount")
+        col_b = await self._create(client, "column", "currency")
+        await self._link(client, ds, col_a)
+        await self._link(client, ds, col_b)
+
+        response = await client.get(f"/api/v1/assets/{ds}/tree")
+
+        assert response.status_code == 200
+        body = response.json()
+        names = sorted(c["asset"]["name"] for c in body["children"])
+        assert names == ["amount", "currency"]
+        for child in body["children"]:
+            assert child["children"] == []
+
+    async def test_tree_respects_depth(self, client: AsyncClient) -> None:
+        """`depth=1` returns direct children only; `depth=2` returns grandchildren."""
+        ds = await self._create(client, "dataset", "warehouse")
+        table = await self._create(client, "table", "orders")
+        col = await self._create(client, "column", "order_id")
+        await self._link(client, ds, table)
+        await self._link(client, table, col)
+
+        # depth=1 — only the table; column should be absent.
+        resp1 = await client.get(f"/api/v1/assets/{ds}/tree?depth=1")
+        body1 = resp1.json()
+        assert len(body1["children"]) == 1
+        assert body1["children"][0]["asset"]["name"] == "orders"
+        assert body1["children"][0]["children"] == []
+
+        # depth=2 — table + column.
+        resp2 = await client.get(f"/api/v1/assets/{ds}/tree?depth=2")
+        body2 = resp2.json()
+        assert body2["children"][0]["children"][0]["asset"]["name"] == "order_id"
+
+    async def test_tree_excludes_schema_projection_nodes(self, client: AsyncClient) -> None:
+        """Schema-projection :Container/:Field nodes must not leak into the tree.
+
+        Setting `metadata.schema` on an asset materialises projection
+        nodes via `[:CONTAINS]`. They share the relationship type with
+        the new asset hierarchy, so the tree walker must filter them
+        out by `child:Asset`.
+        """
+        ds = await self._create(client, "dataset", "with-schema")
+        col = await self._create(client, "column", "email")
+        await self._link(client, ds, col)
+
+        # Add metadata.schema so the projection materialises projection nodes.
+        update = await client.put(
+            f"/api/v1/assets/{ds}",
+            json={
+                "metadata": {
+                    "schema": [
+                        {"nodeType": "field", "name": "ghost_col", "dataType": "string"},
+                    ],
+                }
+            },
+        )
+        assert update.status_code == 200
+
+        # The real column asset should still be the only thing returned.
+        response = await client.get(f"/api/v1/assets/{ds}/tree")
+        body = response.json()
+        assert len(body["children"]) == 1
+        assert body["children"][0]["asset"]["name"] == "email"
+
+    async def test_tree_unknown_uid_returns_404(self, client: AsyncClient) -> None:
+        response = await client.get("/api/v1/assets/does-not-exist/tree")
+        assert response.status_code == 404
+
+
+class TestBulkCreateSchema:
+    """Tests for POST /api/v1/assets/{uid}/schema."""
+
+    async def test_bulk_creates_nested_tree(self, client: AsyncClient) -> None:
+        """A nested tree spec creates assets + contains relations in one call."""
+        root = await client.post(
+            "/api/v1/assets",
+            json={"type": "dataset", "name": "warehouse"},
+        )
+        root_uid = root.json()["uid"]
+
+        body = {
+            "children": [
+                {
+                    "type": "table",
+                    "name": "orders",
+                    "children": [
+                        {"type": "column", "name": "order_id", "metadata": {"data_type": "integer"}},
+                        {"type": "column", "name": "amount", "metadata": {"data_type": "float"}},
+                    ],
+                }
+            ]
+        }
+        response = await client.post(f"/api/v1/assets/{root_uid}/schema", json=body)
+
+        assert response.status_code == 201
+        tree = response.json()
+        assert tree["asset"]["uid"] == root_uid
+        assert len(tree["children"]) == 1
+        table = tree["children"][0]
+        assert table["asset"]["type"] == "table"
+        col_names = sorted(c["asset"]["name"] for c in table["children"])
+        assert col_names == ["amount", "order_id"]
+
+        # The full tree is queryable afterwards.
+        verify = await client.get(f"/api/v1/assets/{root_uid}/tree?depth=2")
+        verify_tree = verify.json()
+        assert verify_tree["children"][0]["asset"]["name"] == "orders"
+        assert len(verify_tree["children"][0]["children"]) == 2
+
+    async def test_bulk_unknown_parent_returns_404(self, client: AsyncClient) -> None:
+        response = await client.post(
+            "/api/v1/assets/missing/schema",
+            json={"children": [{"type": "table", "name": "x"}]},
+        )
+        assert response.status_code == 404

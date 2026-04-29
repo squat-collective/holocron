@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, FrownIcon, Info, ListTree, MapPin, SearchX, Tag } from "lucide-react";
+import { Activity, FrownIcon, Info, ListTree, MapPin, Network, SearchX, Tag } from "lucide-react";
 import Link from "next/link";
+import { AssetChildrenPanel } from "@/components/features/assets/asset-children-panel";
 import { LineageGraph } from "@/components/features/lineage/lineage-graph";
 import { RelationsSection } from "@/components/features/relations/relations-section";
 import { RulesSection } from "@/components/features/rules/rules-section";
@@ -343,6 +344,15 @@ export function AssetDetail({ asset, isLoading, error }: AssetDetailProps) {
 						<div className="flex-1 min-w-[320px]">
 							<RelationsSection entityUid={asset.uid} entityName={asset.name} />
 						</div>
+
+						<Brick
+							title="Contained assets"
+							icon={Network}
+							description="Hierarchical children via `contains`"
+							basis="min-w-[320px] flex-[1_1_320px]"
+						>
+							<AssetChildrenPanel uid={asset.uid} />
+						</Brick>
 
 						<div className="flex-1 min-w-[320px]">
 							<RulesSection assetUid={asset.uid} />

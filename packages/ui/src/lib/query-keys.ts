@@ -17,6 +17,8 @@ export const queryKeys = {
 			[...queryKeys.assets.lists(), filters] as const,
 		details: () => [...queryKeys.assets.all, "detail"] as const,
 		detail: (uid: string) => [...queryKeys.assets.details(), uid] as const,
+		tree: (uid: string, depth: number) =>
+			[...queryKeys.assets.detail(uid), "tree", depth] as const,
 	},
 
 	actors: {

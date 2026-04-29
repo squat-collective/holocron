@@ -8,12 +8,41 @@ from pydantic import BaseModel, Field
 
 
 class AssetType(str, Enum):
-    """Types of data assets."""
+    """Types of data assets.
 
+    Holocron treats schema as first-class assets: a dataset can CONTAIN a
+    table, which CONTAINS columns; a report can CONTAIN sheets/visuals.
+    The hierarchical members coexist with the read-only :Container/:Field
+    projection materialised from `metadata.schema` JSON — that projection
+    is for assets whose schema is sourced from a reader, while these
+    asset types are for explicitly authored schema graphs.
+    """
+
+    # Top-level / "thing" assets
     DATASET = "dataset"
     REPORT = "report"
     PROCESS = "process"
     SYSTEM = "system"
+
+    # Database hierarchy
+    SCHEMA = "schema"
+    TABLE = "table"
+    VIEW = "view"
+    COLUMN = "column"
+
+    # Report hierarchy
+    SHEET = "sheet"
+    PAGE = "page"
+    VISUAL = "visual"
+
+    # BI / semantic-model elements
+    MEASURE = "measure"
+    DIMENSION = "dimension"
+    MODEL = "model"
+
+    # API hierarchy
+    ENDPOINT = "endpoint"
+    FIELD = "field"
 
 
 class ActorType(str, Enum):

@@ -1,6 +1,9 @@
 """Asset repository for Neo4j operations."""
 
+from __future__ import annotations
+
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -401,6 +404,53 @@ class AssetRepository:
             if record is None:
                 return None
             return _node_to_asset(dict(record["a"]))
+
+    async def get_descendants(
+        self,
+        uid: str,
+        depth: int,
+        tx: ExecutionContext | None = None,
+    ) -> Sequence[tuple[str, AssetResponse]]:
+        """Walk `CONTAINS` edges from the root asset up to `depth` levels.
+
+        Returns a flat list of `(parent_uid, child_asset)` tuples ordered
+        by ascending depth so the caller can rebuild the tree without
+        re-sorting. Edges that point at non-:Asset nodes (the
+        :Container/:Field schema projection) are filtered out so a tree
+        of authored hierarchical assets stays clean.
+
+        Args:
+            uid: UID of the root asset.
+            depth: Maximum number of CONTAINS hops to traverse (>= 1).
+            tx: Optional transaction context.
+        """
+        if depth < 1:
+            return []
+        query = """
+            MATCH path = (root:Asset {uid: $uid})-[:CONTAINS*1..]->(child:Asset)
+            WHERE length(path) <= $depth
+            WITH child, length(path) AS depth, nodes(path) AS chain
+            RETURN
+                chain[size(chain) - 2].uid AS parent_uid,
+                child AS a,
+                depth
+            ORDER BY depth, child.created_at
+        """
+        params = {"uid": uid, "depth": depth}
+        if tx is not None:
+            result = await tx.run(query, params)
+            records = await result.data()
+        else:
+            async with neo4j_driver.session() as session:
+                result = await session.run(query, params)
+                records = await result.data()
+        out: list[tuple[str, AssetResponse]] = []
+        for rec in records:
+            node = rec["a"]
+            if node is None:
+                continue
+            out.append((rec["parent_uid"], _node_to_asset(dict(node))))
+        return out
 
     async def delete(
         self,

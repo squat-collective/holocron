@@ -27,11 +27,16 @@ logger = logging.getLogger(__name__)
 
 
 async def tear_down_schema(asset_uid: str, tx: Any) -> None:
-    """Remove every :Container / :Field node reachable from an asset."""
+    """Remove every :Container / :Field projection node reachable from an asset.
+
+    The `NOT n:Asset` guard matters since `column` and `field` AssetTypes
+    write the labels `:Asset:Column` / `:Asset:Field`, which would
+    otherwise collide with projection nodes carrying `:Field`.
+    """
     await tx.run(
         """
         MATCH (a:Asset {uid: $uid})-[:CONTAINS*1..]->(n)
-        WHERE n:Container OR n:Field
+        WHERE (n:Container OR n:Field) AND NOT n:Asset
         DETACH DELETE n
         """,
         {"uid": asset_uid},
