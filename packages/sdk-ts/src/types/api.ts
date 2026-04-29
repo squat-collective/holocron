@@ -399,6 +399,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entity
+         * @description Resolve `uid` to its typed payload, regardless of node label.
+         *
+         *     The lookup is a single Cypher hop to determine the label, followed
+         *     by a typed read through the appropriate service so all the usual
+         *     response shaping (JSON metadata decode, datetime conversion, etc.)
+         *     runs unchanged. 404 if no node has that uid.
+         */
+        get: operations["get_entity_api_v1_entities__uid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -784,6 +809,45 @@ export interface components {
             container_type?: string | null;
             /** Description */
             description?: string | null;
+        };
+        /**
+         * EntityActorResponse
+         * @description Polymorphic envelope for an Actor hit.
+         */
+        EntityActorResponse: {
+            /**
+             * Kind
+             * @default actor
+             * @constant
+             */
+            kind: "actor";
+            actor: components["schemas"]["ActorResponse"];
+        };
+        /**
+         * EntityAssetResponse
+         * @description Polymorphic envelope for an Asset hit.
+         */
+        EntityAssetResponse: {
+            /**
+             * Kind
+             * @default asset
+             * @constant
+             */
+            kind: "asset";
+            asset: components["schemas"]["AssetResponse"];
+        };
+        /**
+         * EntityRuleResponse
+         * @description Polymorphic envelope for a Rule hit.
+         */
+        EntityRuleResponse: {
+            /**
+             * Kind
+             * @default rule
+             * @constant
+             */
+            kind: "rule";
+            rule: components["schemas"]["RuleResponse"];
         };
         /**
          * EntityType
@@ -2316,6 +2380,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TagListResponse"];
+                };
+            };
+        };
+    };
+    get_entity_api_v1_entities__uid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityAssetResponse"] | components["schemas"]["EntityActorResponse"] | components["schemas"]["EntityRuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
