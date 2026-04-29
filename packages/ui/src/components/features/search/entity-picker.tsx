@@ -187,13 +187,28 @@ export function EntityPicker({
 	);
 	const typeSet = useMemo(() => (types && types.length > 0 ? new Set(types) : null), [types]);
 
+	// Forward the wizard's allow-list to the API so the kind/type
+	// filter applies *before* the top-N truncation. The previous
+	// implementation pulled a globally-ranked top-N and then filtered
+	// client-side, so a query that matched many other kinds first
+	// would return the allowed kind empty even when matches existed
+	// (#32). `filterHits` below stays as a defensive last pass for
+	// excludeUids and to handle servers that don't yet support these
+	// query params.
 	const { data } = useQuery<{ items: SearchItem[] }>({
-		queryKey: ["entity-picker", trimmed, fetchLimit],
+		queryKey: [
+			"entity-picker",
+			trimmed,
+			fetchLimit,
+			kinds ? [...kinds].sort() : null,
+			types ? [...types].sort() : null,
+		],
 		queryFn: async ({ signal }) => {
-			const params = new URLSearchParams({
-				q: trimmed,
-				limit: String(fetchLimit),
-			});
+			const params = new URLSearchParams();
+			params.set("q", trimmed);
+			params.set("limit", String(fetchLimit));
+			if (kinds) for (const k of kinds) params.append("kind", k);
+			if (types) for (const t of types) params.append("type", t);
 			const res = await fetch(`/api/holocron/search?${params}`, { signal });
 			if (!res.ok) throw new Error("search failed");
 			return (await res.json()) as { items: SearchItem[] };

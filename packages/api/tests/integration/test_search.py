@@ -226,3 +226,105 @@ class TestSearchEndpoint:
         assert any(
             i["kind"] == "asset" and i["uid"] == asset_uid for i in items
         )
+
+
+class TestSearchKindAndTypeFilters:
+    """Server-side `kind` + `type` filters from #32.
+
+    Wizards pass these to keep allowed-kind hits from getting squeezed
+    out of the globally-ranked top-N. The previous client-side filter
+    only saw the first 20 results, so a query like "data" with a
+    full catalog could leave the wizard's allowed kind missing
+    entirely.
+    """
+
+    async def test_kind_asset_returns_only_assets(self, client: AsyncClient) -> None:
+        asset_uid = await _seed_asset(client, name="Customer Data")
+        await _seed_actor(client, name="Customer Dan")
+        await _seed_rule(client, name="Customer Data Quality", description="x")
+
+        response = await client.get(
+            "/api/v1/search",
+            params={"q": "customer", "kind": "asset"},
+        )
+        items = response.json()["items"]
+
+        assert items, "expected the asset to surface"
+        assert all(i["kind"] == "asset" for i in items)
+        assert any(i["uid"] == asset_uid for i in items)
+
+    async def test_kind_actor_with_type_group_only(self, client: AsyncClient) -> None:
+        await _seed_actor(client, name="Data Eng Person", type="person")
+        group_uid = await _seed_actor(client, name="Data Eng Team", type="group")
+
+        response = await client.get(
+            "/api/v1/search",
+            params={"q": "data eng", "kind": "actor", "type": "group"},
+        )
+        items = response.json()["items"]
+
+        assert items, "expected the team to surface"
+        assert all(i["kind"] == "actor" for i in items)
+        assert all(i["type"] == "group" for i in items)
+        assert any(i["uid"] == group_uid for i in items)
+
+    async def test_repeated_kind_ors_within_kinds(self, client: AsyncClient) -> None:
+        asset_uid = await _seed_asset(client, name="Customer Data")
+        actor_uid = await _seed_actor(client, name="Customer Dan")
+        await _seed_rule(client, name="Customer Data Quality", description="x")
+
+        response = await client.get(
+            "/api/v1/search",
+            params=[("q", "customer"), ("kind", "asset"), ("kind", "actor")],
+        )
+        items = response.json()["items"]
+        kinds = {i["kind"] for i in items}
+
+        assert "asset" in kinds and "actor" in kinds
+        assert "rule" not in kinds
+        assert any(i["uid"] == asset_uid for i in items)
+        assert any(i["uid"] == actor_uid for i in items)
+
+    async def test_type_routes_per_kind(self, client: AsyncClient) -> None:
+        """`kinds=[asset,actor] & types=[dataset,person]` filters each kind by its own type."""
+        ds_uid = await _seed_asset(client, name="Customer Dataset", type="dataset")
+        await _seed_asset(client, name="Customer Report", type="report")
+        person_uid = await _seed_actor(client, name="Customer Dan", type="person")
+        await _seed_actor(client, name="Customer Crew", type="group")
+
+        response = await client.get(
+            "/api/v1/search",
+            params=[
+                ("q", "customer"),
+                ("kind", "asset"),
+                ("kind", "actor"),
+                ("type", "dataset"),
+                ("type", "person"),
+            ],
+        )
+        items = response.json()["items"]
+        uids = {i["uid"] for i in items}
+
+        assert ds_uid in uids
+        assert person_uid in uids
+        # Cross-type hits should be filtered out.
+        assert all(
+            (i["kind"] == "asset" and i["type"] == "dataset")
+            or (i["kind"] == "actor" and i["type"] == "person")
+            for i in items
+        )
+
+    async def test_kind_intersects_with_query_prefix(
+        self, client: AsyncClient
+    ) -> None:
+        """Wizard restricting to `actor` while user typed `ds:` → no hits."""
+        await _seed_asset(client, name="Customer Dataset", type="dataset")
+        await _seed_actor(client, name="Customer Dan")
+
+        response = await client.get(
+            "/api/v1/search",
+            params={"q": "ds:customer", "kind": "actor"},
+        )
+        items = response.json()["items"]
+
+        assert items == [], "explicit kind=actor must not fall through to assets"

@@ -15,6 +15,8 @@ so a literal name match always beats pure semantic similarity. See
 import logging
 from typing import Any
 
+from holocron.api.schemas.actors import ActorType
+from holocron.api.schemas.assets import AssetType
 from holocron.api.schemas.search import (
     ActorHit,
     AssetHit,
@@ -25,7 +27,7 @@ from holocron.api.schemas.search import (
 from holocron.core.services.actor_service import ActorService
 from holocron.core.services.asset_service import AssetService
 from holocron.core.services.embedding_service import EmbeddingService
-from holocron.core.services.query_parser import parse_query
+from holocron.core.services.query_parser import HitKind, _ALL_KINDS, parse_query
 from holocron.core.services.rule_service import RuleService
 from holocron.core.services.search_haystacks import (
     actor_haystack,
@@ -61,7 +63,13 @@ class SearchService:
         self.actor_service = actor_service
         self.rule_service = rule_service
 
-    async def search(self, query: str, limit: int = 50) -> SearchResponse:
+    async def search(
+        self,
+        query: str,
+        limit: int = 50,
+        kinds: list[str] | None = None,
+        types: list[str] | None = None,
+    ) -> SearchResponse:
         """Return hits matching `query` across assets, actors, rules + schemas.
 
         The query supports a small DSL (see :py:mod:`query_parser`):
@@ -71,6 +79,20 @@ class SearchService:
         Kind prefixes narrow the search, quoted phrases require a literal
         substring, `-term` excludes matches. Leftover bare words power the
         semantic vector search.
+
+        Optional explicit filters:
+        - `kinds`: only return hits of the listed kinds
+          (`asset`/`actor`/`container`/`field`/`rule`). Intersects with
+          any `kind:` prefixes the user typed — wizards that already
+          know what's valid for a step pass this so a globally-ranked
+          top-N can't squeeze the relevant kind out.
+        - `types`: type filter applied based on the surviving kind:
+          for `asset` this filters on `asset.type` (dataset / report /
+          process / system / hierarchical members); for `actor` on
+          `actor.type` (person / group); for `rule` on `severity`
+          (info / warning / critical). Mixed-kind type filters are
+          honoured per-kind — `kinds=asset,actor & types=dataset,person`
+          works as expected.
 
         Results are **interleaved by cosine-similarity score** across all
         kinds — so "rules about PII" surfaces the right rule first even
@@ -90,6 +112,50 @@ class SearchService:
             [parsed.text, *parsed.exact_phrases]
         ).strip()
         allowed = parsed.allowed_kinds
+
+        # Explicit `kinds` from the caller intersect with whatever the
+        # query parser inferred. If the parser was unconstrained
+        # (`allowed_kinds` defaulted to all), the explicit set wins
+        # outright. If both sides constrained, we keep only the overlap
+        # — a wizard saying "actor only" plus a user typing `ds:foo`
+        # legitimately produces no hits and we shouldn't quietly fall
+        # through to all actors.
+        #
+        # Filter the incoming list to known HitKind values so a typo
+        # never widens the surface; unknown values are dropped silently
+        # rather than 422'd because the route is also reachable from
+        # plain link-clicks where strictness would only confuse users.
+        if kinds:
+            explicit_kinds: set[HitKind] = {
+                k for k in kinds if k in _ALL_KINDS
+            }
+            if parsed.kinds:
+                allowed = parsed.kinds & explicit_kinds
+            else:
+                allowed = explicit_kinds
+
+        # Explicit `types`: split into per-kind buckets so each ranker
+        # can apply its own filter independently. We intentionally don't
+        # error on unknown values — callers may pass a mixed list (e.g.
+        # `[\"dataset\",\"person\"]` for `kinds=[\"asset\",\"actor\"]`)
+        # and we route each value to the bucket it maps to.
+        explicit_asset_types: set[str] | None = None
+        explicit_actor_types: set[str] | None = None
+        explicit_severities: set[str] | None = None
+        if types:
+            asset_type_pool = {at.value for at in AssetType}
+            actor_type_pool = {at.value for at in ActorType}
+            severity_pool = {"info", "warning", "critical"}
+            type_set = {t for t in types if t}
+            asset_t = type_set & asset_type_pool
+            actor_t = type_set & actor_type_pool
+            sev_t = type_set & severity_pool
+            if asset_t:
+                explicit_asset_types = asset_t
+            if actor_t:
+                explicit_actor_types = actor_t
+            if sev_t:
+                explicit_severities = sev_t
 
         # Resolve graph-aware filters to sets of allowed uids. `None` means
         # "no filter"; an empty set means "the filter matched nothing, so
@@ -150,6 +216,15 @@ class SearchService:
                         a.type.value if hasattr(a.type, "value") else str(a.type)
                     )
                     == parsed.asset_type
+                ]
+            if explicit_asset_types is not None:
+                ranked_assets = [
+                    (a, s)
+                    for a, s in ranked_assets
+                    if (
+                        a.type.value if hasattr(a.type, "value") else str(a.type)
+                    )
+                    in explicit_asset_types
                 ]
             asset_count = 0
             for asset, asset_score in ranked_assets:
@@ -241,6 +316,15 @@ class SearchService:
                     )
                     == parsed.actor_type
                 ]
+            if explicit_actor_types is not None:
+                ranked_actors = [
+                    (a, s)
+                    for a, s in ranked_actors
+                    if (
+                        a.type.value if hasattr(a.type, "value") else str(a.type)
+                    )
+                    in explicit_actor_types
+                ]
             actor_count = 0
             for actor, score in ranked_actors:
                 if actor_count >= PER_KIND_CAP:
@@ -289,6 +373,17 @@ class SearchService:
                         else str(r.severity)
                     )
                     == parsed.severity
+                ]
+            if explicit_severities is not None:
+                ranked_rules = [
+                    (r, s)
+                    for r, s in ranked_rules
+                    if (
+                        r.severity.value
+                        if hasattr(r.severity, "value")
+                        else str(r.severity)
+                    )
+                    in explicit_severities
                 ]
             rule_count = 0
             for rule, score in ranked_rules:

@@ -2190,6 +2190,10 @@ export interface operations {
                 q?: string;
                 /** @description Max items to return */
                 limit?: number;
+                /** @description Restrict results to one or more kinds (asset / actor / container / field / rule). Repeat the param for multiple values. Intersects with any `kind:` prefix typed in the query — wizards that already know what's valid for a step pass this so a globally-ranked top-N can't squeeze the relevant kind out. */
+                kind?: string[] | null;
+                /** @description Type filter, applied per-kind: asset.type for `kind=asset` (dataset / report / process / system / hierarchical members), actor.type for `kind=actor` (person / group), and severity for `kind=rule` (info / warning / critical). Mixed-kind type lists are routed to the right bucket automatically. */
+                type?: string[] | null;
             };
             header?: never;
             path?: never;
