@@ -63,6 +63,11 @@ tests/
 | `create_rule` / `update_rule` / `delete_rule` | Rule CRUD.                                                |
 | `list_rules_for_asset`                       | Rules attached to an asset, with enforcement context.     |
 | `attach_rule` / `detach_rule`                | Wire a rule to an asset (creates `APPLIES_TO` relation).  |
+| `get_asset_schema` | Read an asset's schema tree (containers + fields).                                |
+| `add_schema_container` | Add a container (table / sheet / page / section / …) to an asset's schema.     |
+| `add_schema_field` | Add a field (column / measure / attribute / …) under a container.                 |
+| `update_schema_node` | Rename, change description, toggle pii, etc. on any container or field.         |
+| `delete_schema_node` | Remove a container (with its descendants) or a field.                           |
 | `get_entity`      | Polymorphic resolver — given any UID, return the typed payload (asset / actor / rule). |
 | `search`          | Case-insensitive substring match across assets + actors.                           |
 | `list_tags`       | Distinct tags across the catalog with usage counts (sorted by count desc).         |

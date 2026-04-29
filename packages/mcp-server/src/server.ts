@@ -4,7 +4,11 @@
  * the server without stdio.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createHolocronMcpClient, type McpClientOptions, type McpHolocronClient } from "./client.js";
+import {
+	type McpClientOptions,
+	type McpHolocronClient,
+	createHolocronMcpClient,
+} from "./client.js";
 import { registerCatalogResources } from "./resources/index.js";
 import { registerTools } from "./tools/index.js";
 
@@ -27,8 +31,7 @@ export async function createServer(
 	options: CreateServerOptions,
 ): Promise<{ server: McpServer; client: McpHolocronClient }> {
 	const client =
-		options.client ??
-		createHolocronMcpClient({ baseUrl: options.baseUrl, token: options.token });
+		options.client ?? createHolocronMcpClient({ baseUrl: options.baseUrl, token: options.token });
 
 	const server = new McpServer(SERVER_INFO, {
 		capabilities: {

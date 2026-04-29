@@ -29,9 +29,7 @@ export function registerEventTools(server: McpServer, client: McpHolocronClient)
 					.string()
 					.optional()
 					.describe("Filter to events that touched a specific entity."),
-				action: ActionEnum.optional().describe(
-					"Filter by action (created / updated / deleted).",
-				),
+				action: ActionEnum.optional().describe("Filter by action (created / updated / deleted)."),
 				limit: z.number().int().min(1).max(500).optional(),
 				offset: z.number().int().min(0).optional(),
 			},

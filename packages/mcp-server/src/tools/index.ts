@@ -11,18 +11,17 @@ import { registerGraphTools } from "./graph.js";
 import { registerPluginTools } from "./plugins.js";
 import { registerRelationTools } from "./relations.js";
 import { registerRuleTools } from "./rules.js";
+import { registerSchemaTools } from "./schema.js";
 import { registerSearchTool } from "./search.js";
 import { registerTagTools } from "./tags.js";
 
 /** Register all Holocron MCP tools on the given server. */
-export async function registerTools(
-	server: McpServer,
-	client: McpHolocronClient,
-): Promise<void> {
+export async function registerTools(server: McpServer, client: McpHolocronClient): Promise<void> {
 	registerAssetTools(server, client);
 	registerActorTools(server, client);
 	registerRelationTools(server, client);
 	registerRuleTools(server, client);
+	registerSchemaTools(server, client);
 	registerEntityTools(server, client);
 	registerSearchTool(server, client);
 	registerTagTools(server, client);
@@ -62,6 +61,12 @@ export const TOOL_NAMES = [
 	"list_rules_for_asset",
 	"attach_rule",
 	"detach_rule",
+	// schema (asset.metadata.schema authoring)
+	"get_asset_schema",
+	"add_schema_container",
+	"add_schema_field",
+	"update_schema_node",
+	"delete_schema_node",
 	// polymorphic resolver
 	"get_entity",
 	// catalog-wide

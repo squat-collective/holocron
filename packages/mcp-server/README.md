@@ -14,6 +14,7 @@ Part of the [Holocron monorepo](../../README.md). Cross-cutting docs in [`docs/`
 | **Actors** | `list_actors`, `get_actor`, `create_actor`, `update_actor`, `delete_actor`, `verify_actor` |
 | **Relations** | `list_relations`, `get_relation`, `create_relation`, `delete_relation`, `verify_relation` |
 | **Rules** | `list_rules`, `get_rule`, `create_rule`, `update_rule`, `delete_rule`, `list_rules_for_asset`, `attach_rule`, `detach_rule` |
+| **Schema** | `get_asset_schema`, `add_schema_container`, `add_schema_field`, `update_schema_node`, `delete_schema_node` — author the `metadata.schema` tree of containers + fields without round-tripping the full asset. |
 | **Resolver** | `get_entity` — UID → typed payload (asset / actor / rule), so AI agents don't have to guess the label |
 | **Catalog-wide** | `search` — substring match across assets + actors; `list_tags`; `get_graph_map` (LOD 0/1); `list_events` |
 | **Plugins** | `list_plugins`, `run_plugin` (file inputs by host path) |

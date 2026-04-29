@@ -9,14 +9,7 @@ import { z } from "zod";
 import type { McpHolocronClient } from "../client.js";
 import { errorResult, jsonResult } from "./helpers.js";
 
-const RELATION_TYPES = [
-	"owns",
-	"uses",
-	"feeds",
-	"contains",
-	"member_of",
-	"applies_to",
-] as const;
+const RELATION_TYPES = ["owns", "uses", "feeds", "contains", "member_of", "applies_to"] as const;
 const RelationTypeSchema = z.enum(RELATION_TYPES);
 
 export function registerRelationTools(server: McpServer, client: McpHolocronClient): void {
@@ -54,7 +47,8 @@ export function registerRelationTools(server: McpServer, client: McpHolocronClie
 		"get_relation",
 		{
 			title: "Get Relation",
-			description: "Fetch a single relation by UID. Returns from/to UIDs, type, properties, and verification state.",
+			description:
+				"Fetch a single relation by UID. Returns from/to UIDs, type, properties, and verification state.",
 			inputSchema: {
 				uid: z.string().min(1),
 			},

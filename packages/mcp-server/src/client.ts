@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 /**
  * Thin wrapper around the Holocron SDK plus a few raw endpoints the SDK
  * doesn't yet surface (plugins, verified flag).
@@ -6,8 +8,6 @@
  * combined client used by every tool handler.
  */
 import { HolocronClient } from "@squat-collective/holocron-ts";
-import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
 
 /**
  * Options for constructing the MCP Holocron client.
@@ -335,12 +335,10 @@ export function createHolocronMcpClient(options: McpClientOptions): McpHolocronC
 			}
 		},
 		listRulesForAsset: async (assetUid) => {
-			const res = await request(
-				`/api/v1/rules/for-asset/${encodeURIComponent(assetUid)}`,
-				{ method: "GET" },
-			);
-			if (!res.ok)
-				throw new Error(`listRulesForAsset failed: ${res.status} ${res.statusText}`);
+			const res = await request(`/api/v1/rules/for-asset/${encodeURIComponent(assetUid)}`, {
+				method: "GET",
+			});
+			if (!res.ok) throw new Error(`listRulesForAsset failed: ${res.status} ${res.statusText}`);
 			const data = (await res.json()) as { items: AppliedRuleRecord[] };
 			return data.items ?? [];
 		},
