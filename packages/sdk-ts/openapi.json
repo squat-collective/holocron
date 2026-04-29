@@ -1469,6 +1469,60 @@
         }
       }
     },
+    "/api/v1/entities/{uid}": {
+      "get": {
+        "tags": [
+          "entities"
+        ],
+        "summary": "Get Entity",
+        "description": "Resolve `uid` to its typed payload, regardless of node label.\n\nThe lookup is a single Cypher hop to determine the label, followed\nby a typed read through the appropriate service so all the usual\nresponse shaping (JSON metadata decode, datetime conversion, etc.)\nruns unchanged. 404 if no node has that uid.",
+        "operationId": "get_entity_api_v1_entities__uid__get",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Uid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/EntityAssetResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EntityActorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EntityRuleResponse"
+                    }
+                  ],
+                  "title": "Response Get Entity Api V1 Entities  Uid  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/webhooks": {
       "post": {
         "tags": [
@@ -2536,6 +2590,63 @@
         ],
         "title": "ContainerHit",
         "description": "A schema container (table, sheet, section, \u2026) that matched."
+      },
+      "EntityActorResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "actor",
+            "title": "Kind",
+            "default": "actor"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ActorResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "actor"
+        ],
+        "title": "EntityActorResponse",
+        "description": "Polymorphic envelope for an Actor hit."
+      },
+      "EntityAssetResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "asset",
+            "title": "Kind",
+            "default": "asset"
+          },
+          "asset": {
+            "$ref": "#/components/schemas/AssetResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset"
+        ],
+        "title": "EntityAssetResponse",
+        "description": "Polymorphic envelope for an Asset hit."
+      },
+      "EntityRuleResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "rule",
+            "title": "Kind",
+            "default": "rule"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RuleResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule"
+        ],
+        "title": "EntityRuleResponse",
+        "description": "Polymorphic envelope for a Rule hit."
       },
       "EntityType": {
         "type": "string",

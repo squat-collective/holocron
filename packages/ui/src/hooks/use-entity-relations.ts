@@ -91,9 +91,9 @@ const FIVE_MINUTES = 5 * 60 * 1000;
  *   /relations?to_uid=X  &limit=100
  * Both come back scoped to the entity, independent of catalog size.
  *
- * Counterparties are resolved via individual `/actors/{uid}` and
- * `/assets/{uid}` fetches — React Query caches each one by uid, so
- * previewing many entities in a row reuses shared counterparties.
+ * Counterparties are resolved via individual `/entities/{uid}` fetches —
+ * one call per counterparty, label-agnostic, React Query caches each by
+ * uid so previewing many entities in a row reuses shared counterparties.
  */
 
 function useRelationsFor(entityUid: string, direction: "from" | "to") {
@@ -120,29 +120,41 @@ function useRelationsFor(entityUid: string, direction: "from" | "to") {
 	});
 }
 
-/** Resolve a counterparty by uid. Tries the actor endpoint first, then
- *  the asset one — the single-entity endpoints are cheap + cache-friendly.
+/** Resolve a counterparty by uid via the polymorphic /entities endpoint.
+ *
  *  Returns `null` (not `undefined`) on miss: TanStack Query v5 rejects
- *  `undefined` query results, and rule counterparties land here because
- *  the asset/actor endpoints 404 for them. The `null` gets filtered out
- *  downstream via `counterpartyMap`'s `if (uid && resolved)` guard. */
+ *  `undefined` query results, and we use null to signal "skip this
+ *  counterparty" downstream — `counterpartyMap`'s `if (uid && resolved)`
+ *  guard filters them out of the rendered relations list.
+ *
+ *  Rule counterparties resolve fine but the existing relation rendering
+ *  (RelationActor + RelationAsset) doesn't have a Rule branch yet, so
+ *  we drop them here and surface the same "no Rule in the panel" effect
+ *  the old fallback produced via 404 — minus every rule (and asset)
+ *  generating a 404 along the way. */
 async function fetchEntity(
 	uid: string,
 ): Promise<RelationEntity | null> {
-	const actorRes = await fetch(`/api/holocron/actors/${uid}`);
-	if (actorRes.ok) {
-		const a = (await actorRes.json()) as ActorShape;
+	const res = await fetch(`/api/holocron/entities/${uid}`);
+	if (!res.ok) return null;
+	const body = (await res.json()) as
+		| { kind: "asset"; asset: AssetShape }
+		| { kind: "actor"; actor: ActorShape }
+		| { kind: "rule" };
+
+	if (body.kind === "actor") {
+		const a = body.actor;
 		return {
 			uid: a.uid,
 			name: a.name,
-			type: (a.type === "person" || a.type === "group" ? a.type : "person"),
+			type: a.type === "person" || a.type === "group" ? a.type : "person",
 			email: a.email ?? null,
 			entityType: "actor" as const,
 		};
 	}
-	const assetRes = await fetch(`/api/holocron/assets/${uid}`);
-	if (assetRes.ok) {
-		const a = (await assetRes.json()) as AssetShape;
+
+	if (body.kind === "asset") {
+		const a = body.asset;
 		// Map unknown asset types to a safe default so the UI never blows up.
 		const validTypes = ["dataset", "report", "process", "system"] as const;
 		const type = validTypes.includes(a.type as (typeof validTypes)[number])
@@ -155,6 +167,8 @@ async function fetchEntity(
 			entityType: "asset" as const,
 		};
 	}
+
+	// kind === "rule" → drop. No 404, no console noise.
 	return null;
 }
 

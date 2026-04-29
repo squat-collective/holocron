@@ -165,6 +165,16 @@ export type EventAction = components["schemas"]["EventAction"];
 export type EntityType = components["schemas"]["EntityType"];
 
 /**
+ * Discriminated response for `client.entities.get()` — exactly one of
+ * `asset` / `actor` / `rule` is populated, indicated by `kind`.
+ * @category Types
+ */
+export type Entity =
+	| components["schemas"]["EntityAssetResponse"]
+	| components["schemas"]["EntityActorResponse"]
+	| components["schemas"]["EntityRuleResponse"];
+
+/**
  * Data-landscape map response — nodes + edges with pre-computed layout.
  * @category Types
  */
@@ -986,11 +996,47 @@ export class HolocronClient {
 			// openapi-fetch types `error` / `response.status` as `never` —
 			// fall through to the same shape the `health()` endpoint uses.
 			if (error)
-				throw createApiError(
-					"list tags",
-					error,
-					(response as Response | undefined)?.status,
-				);
+				throw createApiError("list tags", error, (response as Response | undefined)?.status);
+			return data;
+		},
+	};
+
+	/**
+	 * Polymorphic entity resolver — when you have a uid but don't yet
+	 * know whether it's an asset, actor, or rule (graph node clicks,
+	 * relation counterparties, event payloads), this is the one call
+	 * that returns the typed payload in a single hop and avoids the
+	 * old "try /actors → fall back to /assets" pattern that filled the
+	 * console with 404s.
+	 *
+	 * @category Entities
+	 */
+	readonly entities = {
+		/**
+		 * Resolve any uid to its typed payload.
+		 *
+		 * @example
+		 * ```typescript
+		 * const e = await client.entities.get('abc-123');
+		 * if (e.kind === 'asset') console.log(e.asset.name);
+		 * else if (e.kind === 'actor') console.log(e.actor.email);
+		 * else if (e.kind === 'rule') console.log(e.rule.severity);
+		 * ```
+		 */
+		get: async (uid: string): Promise<Entity> => {
+			const { data, error, response } = await this.client.GET("/api/v1/entities/{uid}", {
+				params: { path: { uid } },
+			});
+			if (error) {
+				if (response.status === 404) {
+					throw new NotFoundError(`Entity not found: ${uid}`, {
+						resourceType: "entity",
+						resourceUid: uid,
+						apiError: error,
+					});
+				}
+				throw createApiError(`get entity ${uid}`, error, response.status);
+			}
 			return data;
 		},
 	};
@@ -1110,10 +1156,9 @@ export class HolocronClient {
 		 *   like real events.
 		 */
 		test: async (uid: string) => {
-			const { data, error, response } = await this.client.POST(
-				"/api/v1/webhooks/{uid}/test",
-				{ params: { path: { uid } } },
-			);
+			const { data, error, response } = await this.client.POST("/api/v1/webhooks/{uid}/test", {
+				params: { path: { uid } },
+			});
 			if (error) throw createApiError(`test webhook ${uid}`, error, response.status);
 			return data;
 		},

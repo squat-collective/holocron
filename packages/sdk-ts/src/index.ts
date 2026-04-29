@@ -23,6 +23,7 @@ export type {
 	Event,
 	EventAction,
 	EntityType,
+	Entity,
 	GraphMap,
 	GraphNode,
 	GraphEdge,
