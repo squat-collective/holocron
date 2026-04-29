@@ -1,5 +1,5 @@
 {
-	"name": "@holocron/mcp-server",
+	"name": "@squat-collective/holocron-mcp-server",
 	"version": "0.1.0",
 	"description": "Model Context Protocol server for the Holocron data governance platform",
 	"type": "module",
@@ -12,6 +12,16 @@
 		"dist",
 		"README.md"
 	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/squat-collective/holocron.git",
+		"directory": "packages/mcp-server"
+	},
+	"homepage": "https://github.com/squat-collective/holocron#readme",
+	"bugs": {
+		"url": "https://github.com/squat-collective/holocron/issues"
+	},
+	"license": "MIT",
 	"scripts": {
 		"dev": "bun run --watch src/index.ts",
 		"start": "node dist/index.js",

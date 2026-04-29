@@ -1,4 +1,4 @@
-# @holocron/mcp-server
+# @squat-collective/holocron-mcp-server
 
 > Model Context Protocol server that exposes the Holocron data-governance catalog to AI assistants (Claude Desktop, Claude Code, and any other MCP client).
 
@@ -14,7 +14,8 @@ Part of the [Holocron monorepo](../../README.md). Cross-cutting docs in [`docs/`
 | **Actors** | `list_actors`, `get_actor`, `create_actor`, `update_actor`, `delete_actor`, `verify_actor` |
 | **Relations** | `list_relations`, `get_relation`, `create_relation`, `delete_relation`, `verify_relation` |
 | **Rules** | `list_rules`, `get_rule`, `create_rule`, `update_rule`, `delete_rule`, `list_rules_for_asset`, `attach_rule`, `detach_rule` |
-| **Catalog-wide** | `search` — substring match across assets + actors |
+| **Resolver** | `get_entity` — UID → typed payload (asset / actor / rule), so AI agents don't have to guess the label |
+| **Catalog-wide** | `search` — substring match across assets + actors; `list_tags`; `get_graph_map` (LOD 0/1); `list_events` |
 | **Plugins** | `list_plugins`, `run_plugin` (file inputs by host path) |
 
 The full canonical list lives in `src/tools/index.ts` (`TOOL_NAMES`).
@@ -48,27 +49,41 @@ podman run --rm -v "$(pwd):/app" -w /app/packages/mcp-server oven/bun:1 bun run 
 | `HOLOCRON_API_URL` | `http://localhost:8100` | Base URL of the Holocron API |
 | `HOLOCRON_TOKEN` | _(unset)_ | Optional bearer token (the API is open in dev) |
 
-## Claude Desktop config
+## Claude Desktop / Claude Code config
 
-Add this to your `claude_desktop_config.json`:
+### Recommended: prebuilt GHCR image
+
+Each tagged release publishes `ghcr.io/squat-collective/holocron-mcp-server:vX.Y.Z` (multi-arch, alongside `holocron-api` and `holocron-ui`). Drop this into your client's MCP config:
 
 ```json
 {
   "mcpServers": {
     "holocron": {
-      "command": "node",
+      "command": "docker",
       "args": [
-        "/absolute/path/to/holocron/packages/mcp-server/dist/index.js"
-      ],
-      "env": {
-        "HOLOCRON_API_URL": "http://localhost:8100"
-      }
+        "run", "-i", "--rm",
+        "--network", "holocron",
+        "-e", "HOLOCRON_API_URL=http://api:8000",
+        "ghcr.io/squat-collective/holocron-mcp-server:latest"
+      ]
     }
   }
 }
 ```
 
-Or, to skip the build and run through Bun directly:
+The `--network holocron` arg attaches to the network created by `compose.prod.yml`, so the MCP container can reach the API by service name without exposing a host port. Pin the tag (`:v0.1.0-alpha`) for stability.
+
+If you used `install.sh` to deploy the stack, run
+
+```bash
+./install.sh --print-mcp-config
+```
+
+to get the same snippet pinned to your installed version, with `HOLOCRON_TOKEN` injected from `.env` if set.
+
+### Local-source fallback
+
+For dev-loop iteration without rebuilding the image:
 
 ```json
 {
@@ -79,9 +94,7 @@ Or, to skip the build and run through Bun directly:
         "run",
         "/absolute/path/to/holocron/packages/mcp-server/src/index.ts"
       ],
-      "env": {
-        "HOLOCRON_API_URL": "http://localhost:8100"
-      }
+      "env": { "HOLOCRON_API_URL": "http://localhost:8100" }
     }
   }
 }
@@ -90,7 +103,7 @@ Or, to skip the build and run through Bun directly:
 ## Library usage
 
 ```ts
-import { createServer } from "@holocron/mcp-server";
+import { createServer } from "@squat-collective/holocron-mcp-server";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 const { server } = await createServer({

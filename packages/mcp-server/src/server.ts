@@ -10,7 +10,7 @@ import { registerTools } from "./tools/index.js";
 
 /** Metadata used when advertising the server. */
 export const SERVER_INFO = {
-	name: "@holocron/mcp-server",
+	name: "@squat-collective/holocron-mcp-server",
 	version: "0.1.0",
 } as const;
 

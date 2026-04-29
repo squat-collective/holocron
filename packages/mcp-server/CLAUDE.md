@@ -1,4 +1,4 @@
-# @holocron/mcp-server
+# @squat-collective/holocron-mcp-server
 
 > Model Context Protocol server for the Holocron data-governance platform.
 
@@ -58,7 +58,16 @@ tests/
 | `create_relation` | Create a relation (defaults to verified).                                          |
 | `delete_relation` | Hard-delete a relation.                                                            |
 | `verify_relation` | Inspect a relation — backend does not support toggling `verified` in place yet.    |
+| `list_rules`      | List data-quality rules; filter by category / severity.                            |
+| `get_rule`        | Fetch one rule by UID.                                                             |
+| `create_rule` / `update_rule` / `delete_rule` | Rule CRUD.                                                |
+| `list_rules_for_asset`                       | Rules attached to an asset, with enforcement context.     |
+| `attach_rule` / `detach_rule`                | Wire a rule to an asset (creates `APPLIES_TO` relation).  |
+| `get_entity`      | Polymorphic resolver — given any UID, return the typed payload (asset / actor / rule). |
 | `search`          | Case-insensitive substring match across assets + actors.                           |
+| `list_tags`       | Distinct tags across the catalog with usage counts (sorted by count desc).         |
+| `get_graph_map`   | Catalog topology overview (nodes + edges + layout) at LOD 0 or 1.                  |
+| `list_events`     | Audit events; filter by entity type / entity_uid / action.                         |
 | `list_plugins`    | List registered plugins + their input specs.                                       |
 | `run_plugin`      | Execute a plugin by slug; file inputs accept a host path and are multipart-encoded. |
 
