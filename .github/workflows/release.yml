@@ -183,12 +183,30 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ steps.version.outputs.tag }}"
+          # release-please applies `prerelease: true` + `make_latest: false`
+          # itself when it cuts an alpha/beta/rc; this fallback only kicks
+          # in when a tag was pushed manually (release-please's PR-create
+          # path was blocked, etc.). Mirror its behaviour so manually-tagged
+          # alphas don't accidentally claim "Latest" over the real stable.
+          PRERELEASE_FLAGS=()
+          if [[ "$TAG" =~ -(alpha|beta|rc) ]]; then
+            PRERELEASE_FLAGS=(--prerelease --latest=false)
+          fi
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             # Manual-tag fallback. release-please normally beats us here.
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$TAG" \
-              --notes "Install instructions: see [README](https://github.com/$GITHUB_REPOSITORY#quick-start)."
+              --notes "Install instructions: see [README](https://github.com/$GITHUB_REPOSITORY#quick-start)." \
+              "${PRERELEASE_FLAGS[@]}"
+          elif [[ ${#PRERELEASE_FLAGS[@]} -gt 0 ]]; then
+            # Release already exists (release-please path), but if the tag
+            # is a prerelease we still ensure the flags are right — covers
+            # the case where the manual-PR branch was used and the release
+            # was created via the same fallback path on a prior run.
+            gh release edit "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              "${PRERELEASE_FLAGS[@]}" >/dev/null
           fi
           gh release upload "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
