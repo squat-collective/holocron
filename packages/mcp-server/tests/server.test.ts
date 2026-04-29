@@ -5,13 +5,12 @@
  * require a live Holocron API.
  */
 import { describe, expect, test } from "bun:test";
-import { createServer } from "../src/server.js";
 import type { McpHolocronClient } from "../src/client.js";
+import { createServer } from "../src/server.js";
 import { TOOL_NAMES } from "../src/tools/index.js";
 
 function makeFakeClient(): McpHolocronClient {
 	const empty = async () => ({ items: [], total: 0 });
-	// biome-ignore lint/suspicious/noExplicitAny: test fake
 	const sdk = {
 		assets: {
 			list: empty,
@@ -47,6 +46,7 @@ function makeFakeClient(): McpHolocronClient {
 		events: {
 			list: async () => ({ items: [], total: 0 }),
 		},
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
 	} as any;
 
 	return {
@@ -102,6 +102,12 @@ describe("createServer", () => {
 			"list_rules_for_asset",
 			"attach_rule",
 			"detach_rule",
+			// schema (asset.metadata.schema authoring)
+			"get_asset_schema",
+			"add_schema_container",
+			"add_schema_field",
+			"update_schema_node",
+			"delete_schema_node",
 			// polymorphic resolver
 			"get_entity",
 			// catalog-wide

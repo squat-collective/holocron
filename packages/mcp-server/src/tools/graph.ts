@@ -23,16 +23,12 @@ export function registerGraphTools(server: McpServer, client: McpHolocronClient)
 				lod: z
 					.union([z.literal(0), z.literal(1)])
 					.optional()
-					.describe(
-						"Level of detail: 0 = overview (systems + teams), 1 = full map (default).",
-					),
+					.describe("Level of detail: 0 = overview (systems + teams), 1 = full map (default)."),
 			},
 		},
 		async ({ lod }): Promise<CallToolResult> => {
 			try {
-				const map = await client.sdk.graph.map(
-					lod !== undefined ? { lod } : undefined,
-				);
+				const map = await client.sdk.graph.map(lod !== undefined ? { lod } : undefined);
 				return jsonResult(map);
 			} catch (err) {
 				return errorResult("get_graph_map", err);

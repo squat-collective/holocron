@@ -60,7 +60,8 @@ export function registerRuleTools(server: McpServer, client: McpHolocronClient):
 		"get_rule",
 		{
 			title: "Get Rule",
-			description: "Fetch a single rule by UID — returns full name, description, severity, category.",
+			description:
+				"Fetch a single rule by UID — returns full name, description, severity, category.",
 			inputSchema: { uid: z.string().min(1) },
 		},
 		async ({ uid }): Promise<CallToolResult> => {

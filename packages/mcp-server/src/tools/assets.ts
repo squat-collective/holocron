@@ -157,7 +157,10 @@ export function registerAssetTools(server: McpServer, client: McpHolocronClient)
 				"Mark a discovered asset as verified. Use this once a human (or Claude acting on their behalf) has confirmed the asset is correctly documented. Optionally append a description note.",
 			inputSchema: {
 				uid: z.string().min(1),
-				description: z.string().optional().describe("Optional description to append with verification"),
+				description: z
+					.string()
+					.optional()
+					.describe("Optional description to append with verification"),
 			},
 		},
 		async ({ uid, description }): Promise<CallToolResult> => {

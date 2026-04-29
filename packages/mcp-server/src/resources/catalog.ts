@@ -67,7 +67,8 @@ export function registerCatalogResources(server: McpServer, client: McpHolocronC
 		"holocron://schema-overview",
 		{
 			title: "Holocron Catalog Overview",
-			description: "Markdown summary of the catalog: asset/actor/relation counts and top-level structure.",
+			description:
+				"Markdown summary of the catalog: asset/actor/relation counts and top-level structure.",
 			mimeType: "text/markdown",
 		},
 		async (uri) => {
