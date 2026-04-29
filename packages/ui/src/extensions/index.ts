@@ -33,4 +33,5 @@ export type {
 	FocusedEntityKind,
 	FocusedAsset,
 	FocusedActor,
+	FocusedRelation,
 } from "./types";

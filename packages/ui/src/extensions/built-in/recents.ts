@@ -5,7 +5,11 @@ import {
 	RuleIcon,
 	type LucideIcon,
 } from "@/lib/icons";
-import type { Extension, ExtensionCommand, FocusedEntity } from "../types";
+import type {
+	Extension,
+	ExtensionCommand,
+	PersistedFocusedEntity,
+} from "../types";
 
 /**
  * Recently viewed — projects the recents store into ⌘K commands so the
@@ -48,19 +52,19 @@ export const recentsExtension: Extension = {
 
 /** Detail-page URL for a focused entity. Mirrors the routing in
  *  `app/{kind}s/[uid]/page.tsx`. */
-function hrefFor(focused: FocusedEntity): string | null {
+function hrefFor(focused: PersistedFocusedEntity): string | null {
 	return `/${focused.kind}s/${focused.entity.uid}`;
 }
 
 /** A short subtitle that disambiguates entries with the same name and
  *  reminds the user what kind they were looking at. */
-function kindHint(focused: FocusedEntity): string {
+function kindHint(focused: PersistedFocusedEntity): string {
 	if (focused.kind === "asset") return `${focused.entity.type} · asset`;
 	if (focused.kind === "actor") return `${focused.entity.type} · actor`;
 	return `${focused.entity.severity} · rule`;
 }
 
-function iconFor(focused: FocusedEntity): LucideIcon {
+function iconFor(focused: PersistedFocusedEntity): LucideIcon {
 	if (focused.kind === "asset") {
 		return assetTypeIcons[focused.entity.type] ?? History;
 	}

@@ -55,14 +55,43 @@ export interface FocusedActor {
 	updated_at: string;
 }
 
+/**
+ * A relation focused for palette commands. Unlike Asset/Actor/Rule
+ * there is no relation detail page; this gets published transiently
+ * (e.g. on hover in the relations sidebar) so commands like
+ * "Delete relation", "Open source", "Open target" can target the
+ * specific edge currently in view.
+ */
+export interface FocusedRelation {
+	uid: string;
+	type: string;
+	from_uid: string;
+	to_uid: string;
+	/**
+	 * Display label for the counterparty entity ("Sales Data",
+	 * "Princess Leia"). Used by command labels so the user can tell
+	 * which row they're acting on at a glance.
+	 */
+	other_name: string;
+	other_uid: string;
+	other_kind: "asset" | "actor" | "rule";
+}
+
 /** The entity in focus on the current page, if any. Detail pages publish
  *  themselves through `useSetFocusedEntity`. */
 export type FocusedEntity =
 	| { kind: "asset"; entity: FocusedAsset }
 	| { kind: "actor"; entity: FocusedActor }
-	| { kind: "rule"; entity: Rule };
+	| { kind: "rule"; entity: Rule }
+	| { kind: "relation"; entity: FocusedRelation };
 
 export type FocusedEntityKind = FocusedEntity["kind"];
+
+/** Entities that get persisted into recents / pins. Relations are
+ *  transient (hover-publish from the relations sidebar) and never
+ *  participate. The runtime stores filter on this same constraint;
+ *  this type just makes the contract explicit to consumers. */
+export type PersistedFocusedEntity = Exclude<FocusedEntity, { kind: "relation" }>;
 
 /** Snapshot of the world an extension reasons about when producing its
  *  commands. The `queryClient` is injected by the host so extensions can
@@ -79,11 +108,11 @@ export interface ExtensionContext {
 	/** Most-recently-visited entities, newest first. Capped (see
 	 *  `recents-store.ts`). Empty when the user hasn't visited any detail
 	 *  pages this session. */
-	recents: readonly FocusedEntity[];
+	recents: readonly PersistedFocusedEntity[];
 	/** User-pinned bookmarks, persisted in localStorage. Distinct from
 	 *  recents: pins are sticky and curated, recents are session-only and
 	 *  auto-pruned. */
-	pins: readonly FocusedEntity[];
+	pins: readonly PersistedFocusedEntity[];
 }
 
 /**

@@ -6,8 +6,8 @@ import {
 	type LucideIcon,
 	RuleIcon,
 } from "@/lib/icons";
-import { addPin, isPinned, removePin } from "../pins-store";
-import type { Extension, ExtensionCommand, FocusedEntity } from "../types";
+import { addPin, isPinned, type PinnedEntity, removePin } from "../pins-store";
+import type { Extension, ExtensionCommand } from "../types";
 
 /**
  * Pins — the sticky counterpart to recents.
@@ -27,9 +27,11 @@ export const pinsExtension: Extension = {
 	commands: (ctx): ExtensionCommand[] => {
 		const cmds: ExtensionCommand[] = [];
 
-		// Toggle command for the focused entity.
+		// Toggle command for the focused entity. Relations are transient
+		// hover-publishes from the relations sidebar — we never want to
+		// persist them as a bookmark, so skip the toggle for that kind.
 		const focused = ctx.focused;
-		if (focused) {
+		if (focused && focused.kind !== "relation") {
 			const pinned = isPinned(focused.entity.uid);
 			if (pinned) {
 				cmds.push({
@@ -84,13 +86,13 @@ export const pinsExtension: Extension = {
 	},
 };
 
-function kindHint(focused: FocusedEntity): string {
+function kindHint(focused: PinnedEntity): string {
 	if (focused.kind === "asset") return `${focused.entity.type} · asset`;
 	if (focused.kind === "actor") return `${focused.entity.type} · actor`;
 	return `${focused.entity.severity} · rule`;
 }
 
-function iconFor(focused: FocusedEntity): LucideIcon {
+function iconFor(focused: PinnedEntity): LucideIcon {
 	if (focused.kind === "asset") return assetTypeIcons[focused.entity.type] ?? Bookmark;
 	if (focused.kind === "actor") return actorTypeIcons[focused.entity.type] ?? Bookmark;
 	return RuleIcon;

@@ -14,7 +14,11 @@ export const shareExtension: Extension = {
 	id: "share",
 	name: "Share",
 	description: "Clipboard actions for the focused entity.",
-	when: (ctx) => ctx.focused !== null,
+	// Relations are transient (hover-publish from the relations sidebar)
+	// and don't have a paste-into-Slack story, so the Share command set
+	// stays scoped to the persistent kinds (asset / actor / rule).
+	when: (ctx) =>
+		ctx.focused !== null && ctx.focused.kind !== "relation",
 	commands: (ctx) => {
 		const focused = ctx.focused;
 		if (!focused) return [];
@@ -115,7 +119,7 @@ function toMarkdown(focused: FocusedEntity): string {
 		}
 		lines.push("");
 		lines.push(`UID: \`${a.uid}\``);
-	} else {
+	} else if (focused.kind === "rule") {
 		const r = focused.entity;
 		lines.push(`### ${r.name}`);
 		lines.push("");

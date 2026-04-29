@@ -16,10 +16,14 @@ export const actionsExtension: Extension = {
 	id: "actions",
 	name: "Actions",
 	description: "Cross-cutting verbs for the focused entity.",
-	when: (ctx) => ctx.focused !== null,
+	// Relations are transient (hover-published from the relations
+	// sidebar) and don't have a verify flow — keep the actions
+	// extension scoped to persistent kinds.
+	when: (ctx) =>
+		ctx.focused !== null && ctx.focused.kind !== "relation",
 	commands: (ctx) => {
 		const focused = ctx.focused;
-		if (!focused) return [];
+		if (!focused || focused.kind === "relation") return [];
 		const { entity } = focused;
 		const queryClient = ctx.queryClient;
 

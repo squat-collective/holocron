@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +15,33 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+	type FocusedEntity,
+	getFocusedEntity,
+	setFocusedEntity,
+} from "@/extensions";
 import { type DirectedRelation, useEntityRelations } from "@/hooks/use-entity-relations";
 import { getRelationStyle } from "@/lib/entity-styles";
 import { getRelationTypeIcon, RelationIcon } from "@/lib/icons";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { EntityChip } from "./entity-chip";
+
+/** Build a transient FocusedEntity for the relation under the cursor. */
+function focusedFromRelation(item: DirectedRelation): FocusedEntity {
+	return {
+		kind: "relation",
+		entity: {
+			uid: item.relation.uid,
+			type: item.relation.type,
+			from_uid: item.relation.from_uid,
+			to_uid: item.relation.to_uid,
+			other_name: item.other.name,
+			other_uid: item.other.uid,
+			other_kind: item.other.entityType,
+		},
+	};
+}
 
 interface RelationsSectionProps {
 	entityUid: string;
@@ -76,6 +97,20 @@ export function RelationsSection({ entityUid, entityName }: RelationsSectionProp
 	const queryClient = useQueryClient();
 	const { data, isLoading, error } = useEntityRelations(entityUid);
 	const [deleteTarget, setDeleteTarget] = useState<DirectedRelation | null>(null);
+
+	// Stack-of-one for hover-publish: the previous focus (typically the
+	// parent entity) is captured before we overwrite, then put back on
+	// row leave. The unmount cleanup catches the edge case where the
+	// user navigates away while a row is still hovered.
+	const previousFocusRef = useRef<FocusedEntity | null>(null);
+	useEffect(() => {
+		return () => {
+			const current = getFocusedEntity();
+			if (current?.kind === "relation") {
+				setFocusedEntity(previousFocusRef.current);
+			}
+		};
+	}, []);
 
 	const deleteMutation = useMutation({
 		mutationFn: async (uid: string) => {
@@ -169,7 +204,31 @@ export function RelationsSection({ entityUid, entityName }: RelationsSectionProp
 								</div>
 								<ul className={cn("space-y-1.5 border-l-2 pl-3 ml-2", style.border)}>
 									{group.items.map((item) => (
-										<li key={item.relation.uid} className="flex items-center gap-2">
+										<li
+											key={item.relation.uid}
+											className="flex items-center gap-2"
+											// Hover-publish makes the ⌘K palette show
+											// relation-scoped commands (Delete relation,
+											// Open source/target) for the row under the
+											// cursor. The previous focus (the parent
+											// entity) is captured before we overwrite so
+											// leaving the row restores it cleanly.
+											onMouseEnter={() => {
+												const prev = getFocusedEntity();
+												previousFocusRef.current = prev;
+												setFocusedEntity(focusedFromRelation(item));
+											}}
+											onMouseLeave={() => {
+												// Only restore if we're still the publisher
+												// — otherwise a different row already took
+												// over and we shouldn't clobber its focus.
+												const current = getFocusedEntity();
+												if (current?.kind === "relation"
+													&& current.entity.uid === item.relation.uid) {
+													setFocusedEntity(previousFocusRef.current);
+												}
+											}}
+										>
 											<EntityChip
 												uid={item.other.uid}
 												name={item.other.name}

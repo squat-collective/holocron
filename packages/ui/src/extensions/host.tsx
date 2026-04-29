@@ -15,6 +15,7 @@ import { governanceExtension } from "./built-in/governance";
 import { navigationExtension } from "./built-in/navigation";
 import { pinsExtension } from "./built-in/pins";
 import { recentsExtension } from "./built-in/recents";
+import { relationExtension } from "./built-in/relation";
 import { ruleExtension } from "./built-in/rule";
 import { shareExtension } from "./built-in/share";
 import { useFocusedEntity } from "./focused-entity";
@@ -53,6 +54,7 @@ const BUILT_IN_EXTENSIONS: readonly Extension[] = [
 	assetNavExtension,
 	actorExtension,
 	ruleExtension,
+	relationExtension,
 	devToolsExtension,
 ];
 for (const ext of BUILT_IN_EXTENSIONS) registerExtension(ext);
