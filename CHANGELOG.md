@@ -13,6 +13,18 @@ an entry in the next release section automatically. What's pending for
 the next release is visible on the open `release-please` PR; it lands
 here only when that PR is merged.
 
+## [0.3.0-alpha](https://github.com/squat-collective/holocron/compare/v0.2.0-alpha...v0.3.0-alpha) (2026-04-29)
+
+
+### Added
+
+* **mcp:** schema tools — manage containers + fields without round-tripping the asset ([#41](https://github.com/squat-collective/holocron/issues/41)) ([66c8051](https://github.com/squat-collective/holocron/commit/66c80513f4fc744a0405beefd643e960ac190b50))
+
+
+### Fixed
+
+* **ui:** pin lineage canvas to h-[60vh] so ReactFlow can measure it ([#40](https://github.com/squat-collective/holocron/issues/40)) ([bb03d0c](https://github.com/squat-collective/holocron/commit/bb03d0cf62a12eb180fbf34044ffcfca6101c818))
+
 ## [0.2.0-alpha](https://github.com/squat-collective/holocron/compare/v0.1.0-alpha...v0.2.0-alpha) (2026-04-29)
 
 
