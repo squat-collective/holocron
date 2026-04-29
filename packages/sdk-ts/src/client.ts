@@ -234,6 +234,50 @@ export type TagUsage = components["schemas"]["TagUsage"];
 export type TagList = components["schemas"]["TagListResponse"];
 
 /**
+ * A Business Glossary term — the canonical name + definition for a
+ * business concept ("Active Customer", "Revenue"). Terms live alongside
+ * assets and link via a `defines` relation.
+ * @category Types
+ */
+export type Term = components["schemas"]["TermResponse"];
+
+/**
+ * Input for creating a new {@link Term}.
+ *
+ * Mirrors the asset/actor pattern: `pii`, `verified`, `discovered_by`
+ * have server-side defaults, so they're optional for clients.
+ * @category Types
+ */
+export type TermCreate = Omit<
+	components["schemas"]["TermCreate"],
+	"pii" | "verified" | "discovered_by" | "status"
+> & {
+	pii?: boolean;
+	verified?: boolean;
+	discovered_by?: string | null;
+	status?: components["schemas"]["TermStatus"];
+};
+
+/**
+ * Input for updating an existing term.
+ * @category Types
+ */
+export type TermUpdate = components["schemas"]["TermUpdate"];
+
+/**
+ * Term lifecycle status: `draft`, `approved`, `deprecated`.
+ * @category Types
+ */
+export type TermStatus = components["schemas"]["TermStatus"];
+
+/**
+ * Response shape for `client.terms.definedAssets()` — the list of
+ * assets a single term links to via `defines`.
+ * @category Types
+ */
+export type TermDefinedAssets = components["schemas"]["TermDefinedAssetsResponse"];
+
+/**
  * Body POSTed to subscriber URLs when an event fires. The canonical
  * `topic` (`"<entity>.<action>"`) lets receivers route by string
  * without reading both `action` and `entity_type`.
@@ -986,11 +1030,121 @@ export class HolocronClient {
 			// openapi-fetch types `error` / `response.status` as `never` —
 			// fall through to the same shape the `health()` endpoint uses.
 			if (error)
-				throw createApiError(
-					"list tags",
-					error,
-					(response as Response | undefined)?.status,
-				);
+				throw createApiError("list tags", error, (response as Response | undefined)?.status);
+			return data;
+		},
+	};
+
+	/**
+	 * Business Glossary term operations. Terms are the canonical
+	 * name + definition for a business concept and link to assets via
+	 * `defines` relations.
+	 *
+	 * @category Terms
+	 */
+	readonly terms = {
+		/**
+		 * List terms, with optional filters.
+		 *
+		 * @example
+		 * ```typescript
+		 * const { items, total } = await client.terms.list({ domain: 'Finance' });
+		 * ```
+		 */
+		list: async (params?: {
+			/** Exact-match filter on `domain` (free-form per org). */
+			domain?: string;
+			/** Lifecycle status filter. */
+			status?: TermStatus;
+			/** Filter by PII flag. */
+			pii?: boolean;
+			limit?: number;
+			offset?: number;
+		}) => {
+			const { data, error, response } = await this.client.GET("/api/v1/terms", {
+				params: { query: params },
+			});
+			if (error) throw createApiError("list terms", error, response.status);
+			return data;
+		},
+
+		/** Fetch a term by UID. */
+		get: async (uid: string) => {
+			const { data, error, response } = await this.client.GET("/api/v1/terms/{uid}", {
+				params: { path: { uid } },
+			});
+			if (error) {
+				if (response.status === 404) {
+					throw new NotFoundError(`Term not found: ${uid}`, {
+						resourceType: "term",
+						resourceUid: uid,
+						apiError: error,
+					});
+				}
+				throw createApiError(`get term ${uid}`, error, response.status);
+			}
+			return data;
+		},
+
+		/** Create a new glossary term. */
+		create: async (term: TermCreate) => {
+			const { data, error, response } = await this.client.POST("/api/v1/terms", {
+				body: term as components["schemas"]["TermCreate"],
+			});
+			if (error) throw createApiError("create term", error, response.status);
+			return data;
+		},
+
+		/** Update an existing term (partial). */
+		update: async (uid: string, term: TermUpdate) => {
+			const { data, error, response } = await this.client.PUT("/api/v1/terms/{uid}", {
+				params: { path: { uid } },
+				body: term,
+			});
+			if (error) throw createApiError(`update term ${uid}`, error, response.status);
+			return data;
+		},
+
+		/** Delete a term and every relation incident to it. */
+		delete: async (uid: string) => {
+			const { error, response } = await this.client.DELETE("/api/v1/terms/{uid}", {
+				params: { path: { uid } },
+			});
+			if (error) throw createApiError(`delete term ${uid}`, error, response.status);
+		},
+
+		/**
+		 * Wire `Term -[:DEFINES]-> Asset`. Resolves once the edge is
+		 * persisted; throws if either side doesn't exist.
+		 */
+		defineAsset: async (termUid: string, assetUid: string) => {
+			const { error, response } = await this.client.POST(
+				"/api/v1/terms/{uid}/defines/{asset_uid}",
+				{ params: { path: { uid: termUid, asset_uid: assetUid } } },
+			);
+			if (error)
+				throw createApiError(`link term ${termUid} -> asset ${assetUid}`, error, response.status);
+		},
+
+		/** Remove a `DEFINES` edge. 404 if no such edge existed. */
+		undefineAsset: async (termUid: string, assetUid: string) => {
+			const { error, response } = await this.client.DELETE(
+				"/api/v1/terms/{uid}/defines/{asset_uid}",
+				{ params: { path: { uid: termUid, asset_uid: assetUid } } },
+			);
+			if (error)
+				throw createApiError(`unlink term ${termUid} -> asset ${assetUid}`, error, response.status);
+		},
+
+		/**
+		 * List the assets a term defines (uid + name + type).
+		 */
+		definedAssets: async (uid: string) => {
+			const { data, error, response } = await this.client.GET("/api/v1/terms/{uid}/defines", {
+				params: { path: { uid } },
+			});
+			if (error)
+				throw createApiError(`list defined assets for term ${uid}`, error, response.status);
 			return data;
 		},
 	};
@@ -1110,10 +1264,9 @@ export class HolocronClient {
 		 *   like real events.
 		 */
 		test: async (uid: string) => {
-			const { data, error, response } = await this.client.POST(
-				"/api/v1/webhooks/{uid}/test",
-				{ params: { path: { uid } } },
-			);
+			const { data, error, response } = await this.client.POST("/api/v1/webhooks/{uid}/test", {
+				params: { path: { uid } },
+			});
 			if (error) throw createApiError(`test webhook ${uid}`, error, response.status);
 			return data;
 		},

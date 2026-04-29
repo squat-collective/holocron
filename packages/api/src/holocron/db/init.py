@@ -17,6 +17,7 @@ async def init_constraints() -> None:
         "CREATE CONSTRAINT actor_uid IF NOT EXISTS FOR (a:Actor) REQUIRE a.uid IS UNIQUE",
         "CREATE CONSTRAINT event_uid IF NOT EXISTS FOR (e:Event) REQUIRE e.uid IS UNIQUE",
         "CREATE CONSTRAINT rule_uid IF NOT EXISTS FOR (r:Rule) REQUIRE r.uid IS UNIQUE",
+        "CREATE CONSTRAINT term_uid IF NOT EXISTS FOR (t:Term) REQUIRE t.uid IS UNIQUE",
         "CREATE CONSTRAINT webhook_uid IF NOT EXISTS FOR (w:Webhook) REQUIRE w.uid IS UNIQUE",
     ]
 
@@ -31,6 +32,9 @@ async def init_constraints() -> None:
         "CREATE INDEX rule_name IF NOT EXISTS FOR (r:Rule) ON (r.name)",
         "CREATE INDEX rule_severity IF NOT EXISTS FOR (r:Rule) ON (r.severity)",
         "CREATE INDEX rule_category IF NOT EXISTS FOR (r:Rule) ON (r.category)",
+        "CREATE INDEX term_name IF NOT EXISTS FOR (t:Term) ON (t.name)",
+        "CREATE INDEX term_domain IF NOT EXISTS FOR (t:Term) ON (t.domain)",
+        "CREATE INDEX term_status IF NOT EXISTS FOR (t:Term) ON (t.status)",
         "CREATE INDEX event_entity_uid IF NOT EXISTS FOR (e:Event) ON (e.entity_uid)",
         "CREATE INDEX event_entity_type IF NOT EXISTS FOR (e:Event) ON (e.entity_type)",
         "CREATE INDEX event_action IF NOT EXISTS FOR (e:Event) ON (e.action)",

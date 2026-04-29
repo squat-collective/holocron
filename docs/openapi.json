@@ -1469,6 +1469,416 @@
         }
       }
     },
+    "/api/v1/terms": {
+      "post": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "Create Term",
+        "description": "Create a new glossary term.",
+        "operationId": "create_term_api_v1_terms_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TermCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "List Terms",
+        "description": "List terms with optional filtering.",
+        "operationId": "list_terms_api_v1_terms_get",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exact domain match",
+              "title": "Domain"
+            },
+            "description": "Filter by exact domain match"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TermStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by lifecycle status",
+              "title": "Status"
+            },
+            "description": "Filter by lifecycle status"
+          },
+          {
+            "name": "pii",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by PII flag",
+              "title": "Pii"
+            },
+            "description": "Filter by PII flag"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/terms/{uid}": {
+      "get": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "Get Term",
+        "description": "Get a single term by UID.",
+        "operationId": "get_term_api_v1_terms__uid__get",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Uid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "Update Term",
+        "description": "Update an existing term.",
+        "operationId": "update_term_api_v1_terms__uid__put",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Uid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TermUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "Delete Term",
+        "description": "Delete a term and every relation incident to it.",
+        "operationId": "delete_term_api_v1_terms__uid__delete",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Uid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/terms/{uid}/defines/{asset_uid}": {
+      "post": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "Define Asset",
+        "description": "Link this term to an asset via a `DEFINES` relation.",
+        "operationId": "define_asset_api_v1_terms__uid__defines__asset_uid__post",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Uid"
+            }
+          },
+          {
+            "name": "asset_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Uid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "Undefine Asset",
+        "description": "Remove the `DEFINES` relation(s) from this term to an asset.\n\nReturns 404 if no edge existed \u2014 protects callers against silent\nno-ops when they pass a stale asset_uid.",
+        "operationId": "undefine_asset_api_v1_terms__uid__defines__asset_uid__delete",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Uid"
+            }
+          },
+          {
+            "name": "asset_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Uid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/terms/{uid}/defines": {
+      "get": {
+        "tags": [
+          "terms"
+        ],
+        "summary": "List Defined Assets",
+        "description": "List the assets this term defines.",
+        "operationId": "list_defined_assets_api_v1_terms__uid__defines_get",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Uid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermDefinedAssetsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/webhooks": {
       "post": {
         "tags": [
@@ -2543,7 +2953,8 @@
           "asset",
           "actor",
           "relation",
-          "rule"
+          "rule",
+          "term"
         ],
         "title": "EntityType",
         "description": "Types of entities that can be tracked."
@@ -3169,7 +3580,11 @@
           "feeds",
           "contains",
           "member_of",
-          "applies_to"
+          "applies_to",
+          "defines",
+          "stewards",
+          "related_to",
+          "synonym_of"
         ],
         "title": "RelationType",
         "description": "Valid relation types.\n\nData-flow lineage is asset-only: the single FEEDS edge covers\nupstream \u2192 downstream flow between any two assets (including\nprocesses, which participate as plain asset nodes). We intentionally\ndo not carry PRODUCES/CONSUMES or DERIVED_FROM so the same data flow\nnever has two parallel encodings."
@@ -3565,6 +3980,406 @@
         ],
         "title": "TagUsage",
         "description": "A tag that's currently in use on at least one asset, with its\ncatalog-wide usage count. Counts let UI consumers prefer the\ndominant spelling when offering suggestions (`pii (12)` vs.\n`PII (1)`)."
+      },
+      "TermCreate": {
+        "properties": {
+          "uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uid",
+            "description": "Optional client-supplied UID for idempotent creation. Auto-generated if not provided."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Definition"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain",
+            "description": "Free-form domain label (e.g. 'Finance', 'Marketing'). Not enumerated \u2014 each org grows its own."
+          },
+          "status": {
+            "$ref": "#/components/schemas/TermStatus",
+            "default": "draft"
+          },
+          "formula": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formula"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "pii": {
+            "type": "boolean",
+            "title": "Pii",
+            "default": false
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified",
+            "default": true
+          },
+          "discovered_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovered By"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "definition"
+        ],
+        "title": "TermCreate",
+        "description": "Request body for creating a term."
+      },
+      "TermDefinedAsset": {
+        "properties": {
+          "uid": {
+            "type": "string",
+            "title": "Uid"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uid",
+          "name",
+          "type"
+        ],
+        "title": "TermDefinedAsset",
+        "description": "An asset that a term `DEFINES`."
+      },
+      "TermDefinedAssetsResponse": {
+        "properties": {
+          "term_uid": {
+            "type": "string",
+            "title": "Term Uid"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TermDefinedAsset"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "term_uid",
+          "items"
+        ],
+        "title": "TermDefinedAssetsResponse",
+        "description": "List of assets a term defines, with the parent term's UID."
+      },
+      "TermListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TermResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "TermListResponse",
+        "description": "Response model for listing terms."
+      },
+      "TermResponse": {
+        "properties": {
+          "uid": {
+            "type": "string",
+            "title": "Uid"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "definition": {
+            "type": "string",
+            "title": "Definition"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TermStatus"
+          },
+          "formula": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formula"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "pii": {
+            "type": "boolean",
+            "title": "Pii"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified"
+          },
+          "discovered_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovered By"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uid",
+          "name",
+          "definition",
+          "domain",
+          "status",
+          "formula",
+          "unit",
+          "pii",
+          "verified",
+          "discovered_by",
+          "metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TermResponse",
+        "description": "Response model for a single term."
+      },
+      "TermStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "approved",
+          "deprecated"
+        ],
+        "title": "TermStatus",
+        "description": "Glossary term lifecycle status."
+      },
+      "TermUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TermStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "formula": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formula"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "pii": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pii"
+          },
+          "verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified"
+          },
+          "discovered_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovered By"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "title": "TermUpdate",
+        "description": "Request body for updating a term."
       },
       "ValidationError": {
         "properties": {

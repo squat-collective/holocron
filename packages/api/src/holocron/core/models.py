@@ -47,6 +47,11 @@ class RelationType(str, Enum):
     CONTAINS = "contains"
     MEMBER_OF = "member_of"
     APPLIES_TO = "applies_to"  # Rule → Asset (carries enforcement + field_path in properties)
+    # Glossary edges — wire business terms into the catalog.
+    DEFINES = "defines"  # Term → Asset (this term is realised by this asset / column)
+    STEWARDS = "stewards"  # Actor → Term (actor maintains the canonical definition)
+    RELATED_TO = "related_to"  # Term ↔ Term (loose semantic association)
+    SYNONYM_OF = "synonym_of"  # Term ↔ Term (treat as the same concept for search)
 
 
 class RuleSeverity(str, Enum):
@@ -84,6 +89,20 @@ class EntityType(str, Enum):
     ACTOR = "actor"
     RELATION = "relation"
     RULE = "rule"
+    TERM = "term"
+
+
+class TermStatus(str, Enum):
+    """Glossary term lifecycle status.
+
+    `draft` — proposed, not yet endorsed.
+    `approved` — the canonical definition; UI should prefer this in suggestions.
+    `deprecated` — superseded; kept for back-references but suggestions filter it out.
+    """
+
+    DRAFT = "draft"
+    APPROVED = "approved"
+    DEPRECATED = "deprecated"
 
 
 class Asset(BaseModel):
@@ -157,3 +176,29 @@ class Event(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     changes: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class Term(BaseModel):
+    """A business glossary term — the canonical name + definition for a
+    business concept (e.g. "Active Customer", "Revenue").
+
+    Terms exist alongside assets: an asset/column is a *physical*
+    artefact, a term is a *semantic* contract. They wire together via
+    `Term -[:DEFINES]-> Asset`. `domain` is intentionally free-form text
+    rather than an enum so each org can grow its own taxonomy without a
+    migration.
+    """
+
+    uid: str
+    name: str
+    definition: str
+    domain: str | None = None
+    status: TermStatus = TermStatus.DRAFT
+    formula: str | None = None
+    unit: str | None = None
+    pii: bool = False
+    verified: bool = True
+    discovered_by: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

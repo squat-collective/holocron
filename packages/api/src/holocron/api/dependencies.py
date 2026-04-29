@@ -16,6 +16,7 @@ from holocron.core.services import (
     SearchService,
 )
 from holocron.core.services.event_service import EventService
+from holocron.core.services.term_service import TermService
 from holocron.core.services.webhook_dispatcher import WebhookDispatcher
 from holocron.db.connection import Neo4jDriver, neo4j_driver
 from holocron.db.repositories.actor_repo import ActorRepository
@@ -23,6 +24,7 @@ from holocron.db.repositories.asset_repo import AssetRepository
 from holocron.db.repositories.event_repo import EventRepository
 from holocron.db.repositories.relation_repo import RelationRepository
 from holocron.db.repositories.rule_repo import RuleRepository
+from holocron.db.repositories.term_repo import TermRepository
 from holocron.db.repositories.webhook_repo import WebhookRepository
 
 
@@ -50,6 +52,11 @@ def get_relation_repository() -> RelationRepository:
 def get_rule_repository() -> RuleRepository:
     """Get the rule repository instance."""
     return RuleRepository()
+
+
+def get_term_repository() -> TermRepository:
+    """Get the term repository instance."""
+    return TermRepository()
 
 
 def get_webhook_repository() -> WebhookRepository:
@@ -129,6 +136,21 @@ def get_rule_service(
     return RuleService(rule_repo=rule_repo, event_repo=event_repo, driver=driver)
 
 
+def get_term_service(
+    term_repo: Annotated[TermRepository, Depends(get_term_repository)],
+    event_repo: Annotated[EventRepository, Depends(get_event_repository)],
+    relation_repo: Annotated[RelationRepository, Depends(get_relation_repository)],
+    driver: Annotated[Neo4jDriver, Depends(get_neo4j_driver)],
+) -> TermService:
+    """Get the term service with injected dependencies."""
+    return TermService(
+        term_repo=term_repo,
+        event_repo=event_repo,
+        relation_repo=relation_repo,
+        driver=driver,
+    )
+
+
 # The GraphService caches a computed layout between requests, so it must
 # be a process-wide singleton — re-creating it per request would throw the
 # cache away and re-run networkx every time.
@@ -161,6 +183,7 @@ _TOPOLOGY_ENTITIES = frozenset(
         "actor",
         "rule",
         "relation",
+        "term",
     }
 )
 
@@ -202,5 +225,6 @@ AssetServiceDep = Annotated[AssetService, Depends(get_asset_service)]
 ActorServiceDep = Annotated[ActorService, Depends(get_actor_service)]
 RelationServiceDep = Annotated[RelationService, Depends(get_relation_service)]
 RuleServiceDep = Annotated[RuleService, Depends(get_rule_service)]
+TermServiceDep = Annotated[TermService, Depends(get_term_service)]
 SearchServiceDep = Annotated[SearchService, Depends(get_search_service)]
 GraphServiceDep = Annotated[GraphService, Depends(get_graph_service)]

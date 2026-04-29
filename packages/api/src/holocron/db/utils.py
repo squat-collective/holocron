@@ -19,6 +19,8 @@ ALLOWED_NODE_LABELS: frozenset[str] = frozenset(
         # Actor types (capitalized from enum values)
         "Person",
         "Group",
+        # Glossary
+        "Term",
     }
 )
 
@@ -36,6 +38,11 @@ ALLOWED_RELATIONSHIP_TYPES: frozenset[str] = frozenset(
         "MEMBER_OF",
         # Rule -> Asset
         "APPLIES_TO",
+        # Glossary edges
+        "DEFINES",  # Term -> Asset
+        "STEWARDS",  # Actor -> Term
+        "RELATED_TO",  # Term <-> Term
+        "SYNONYM_OF",  # Term <-> Term
     }
 )
 

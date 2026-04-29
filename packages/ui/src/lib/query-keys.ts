@@ -48,4 +48,16 @@ export const queryKeys = {
 		details: () => [...queryKeys.webhooks.all, "detail"] as const,
 		detail: (uid: string) => [...queryKeys.webhooks.details(), uid] as const,
 	},
+
+	terms: {
+		all: ["terms"] as const,
+		lists: () => [...queryKeys.terms.all, "list"] as const,
+		list: (filters?: {
+			domain?: string;
+			status?: "draft" | "approved" | "deprecated";
+			pii?: boolean;
+		}) => [...queryKeys.terms.lists(), filters] as const,
+		details: () => [...queryKeys.terms.all, "detail"] as const,
+		detail: (uid: string) => [...queryKeys.terms.details(), uid] as const,
+	},
 } as const;

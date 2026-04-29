@@ -22,6 +22,7 @@ class EntityType(str, Enum):
     ACTOR = "actor"
     RELATION = "relation"
     RULE = "rule"
+    TERM = "term"
 
 
 class EventResponse(BaseModel):

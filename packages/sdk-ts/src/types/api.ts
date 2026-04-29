@@ -399,6 +399,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Terms
+         * @description List terms with optional filtering.
+         */
+        get: operations["list_terms_api_v1_terms_get"];
+        put?: never;
+        /**
+         * Create Term
+         * @description Create a new glossary term.
+         */
+        post: operations["create_term_api_v1_terms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/terms/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Term
+         * @description Get a single term by UID.
+         */
+        get: operations["get_term_api_v1_terms__uid__get"];
+        /**
+         * Update Term
+         * @description Update an existing term.
+         */
+        put: operations["update_term_api_v1_terms__uid__put"];
+        post?: never;
+        /**
+         * Delete Term
+         * @description Delete a term and every relation incident to it.
+         */
+        delete: operations["delete_term_api_v1_terms__uid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/terms/{uid}/defines/{asset_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Define Asset
+         * @description Link this term to an asset via a `DEFINES` relation.
+         */
+        post: operations["define_asset_api_v1_terms__uid__defines__asset_uid__post"];
+        /**
+         * Undefine Asset
+         * @description Remove the `DEFINES` relation(s) from this term to an asset.
+         *
+         *     Returns 404 if no edge existed — protects callers against silent
+         *     no-ops when they pass a stale asset_uid.
+         */
+        delete: operations["undefine_asset_api_v1_terms__uid__defines__asset_uid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/terms/{uid}/defines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Defined Assets
+         * @description List the assets this term defines.
+         */
+        get: operations["list_defined_assets_api_v1_terms__uid__defines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -790,7 +889,7 @@ export interface components {
          * @description Types of entities that can be tracked.
          * @enum {string}
          */
-        EntityType: "asset" | "actor" | "relation" | "rule";
+        EntityType: "asset" | "actor" | "relation" | "rule" | "term";
         /**
          * EventAction
          * @description Types of audit actions.
@@ -1129,7 +1228,7 @@ export interface components {
          *     never has two parallel encodings.
          * @enum {string}
          */
-        RelationType: "owns" | "uses" | "feeds" | "contains" | "member_of" | "applies_to";
+        RelationType: "owns" | "uses" | "feeds" | "contains" | "member_of" | "applies_to" | "defines" | "stewards" | "related_to" | "synonym_of";
         /**
          * RuleCreate
          * @description Request body for creating a rule.
@@ -1291,6 +1390,152 @@ export interface components {
              * @description Number of assets carrying this tag.
              */
             count: number;
+        };
+        /**
+         * TermCreate
+         * @description Request body for creating a term.
+         */
+        TermCreate: {
+            /**
+             * Uid
+             * @description Optional client-supplied UID for idempotent creation. Auto-generated if not provided.
+             */
+            uid?: string | null;
+            /** Name */
+            name: string;
+            /** Definition */
+            definition: string;
+            /**
+             * Domain
+             * @description Free-form domain label (e.g. 'Finance', 'Marketing'). Not enumerated — each org grows its own.
+             */
+            domain?: string | null;
+            /** @default draft */
+            status: components["schemas"]["TermStatus"];
+            /** Formula */
+            formula?: string | null;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Pii
+             * @default false
+             */
+            pii: boolean;
+            /**
+             * Verified
+             * @default true
+             */
+            verified: boolean;
+            /** Discovered By */
+            discovered_by?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * TermDefinedAsset
+         * @description An asset that a term `DEFINES`.
+         */
+        TermDefinedAsset: {
+            /** Uid */
+            uid: string;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+        };
+        /**
+         * TermDefinedAssetsResponse
+         * @description List of assets a term defines, with the parent term's UID.
+         */
+        TermDefinedAssetsResponse: {
+            /** Term Uid */
+            term_uid: string;
+            /** Items */
+            items: components["schemas"]["TermDefinedAsset"][];
+        };
+        /**
+         * TermListResponse
+         * @description Response model for listing terms.
+         */
+        TermListResponse: {
+            /** Items */
+            items: components["schemas"]["TermResponse"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * TermResponse
+         * @description Response model for a single term.
+         */
+        TermResponse: {
+            /** Uid */
+            uid: string;
+            /** Name */
+            name: string;
+            /** Definition */
+            definition: string;
+            /** Domain */
+            domain: string | null;
+            status: components["schemas"]["TermStatus"];
+            /** Formula */
+            formula: string | null;
+            /** Unit */
+            unit: string | null;
+            /** Pii */
+            pii: boolean;
+            /** Verified */
+            verified: boolean;
+            /** Discovered By */
+            discovered_by: string | null;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * TermStatus
+         * @description Glossary term lifecycle status.
+         * @enum {string}
+         */
+        TermStatus: "draft" | "approved" | "deprecated";
+        /**
+         * TermUpdate
+         * @description Request body for updating a term.
+         */
+        TermUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Definition */
+            definition?: string | null;
+            /** Domain */
+            domain?: string | null;
+            status?: components["schemas"]["TermStatus"] | null;
+            /** Formula */
+            formula?: string | null;
+            /** Unit */
+            unit?: string | null;
+            /** Pii */
+            pii?: boolean | null;
+            /** Verified */
+            verified?: boolean | null;
+            /** Discovered By */
+            discovered_by?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -2316,6 +2561,263 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TagListResponse"];
+                };
+            };
+        };
+    };
+    list_terms_api_v1_terms_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by exact domain match */
+                domain?: string | null;
+                /** @description Filter by lifecycle status */
+                status?: components["schemas"]["TermStatus"] | null;
+                /** @description Filter by PII flag */
+                pii?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_term_api_v1_terms_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_term_api_v1_terms__uid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_term_api_v1_terms__uid__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_term_api_v1_terms__uid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    define_asset_api_v1_terms__uid__defines__asset_uid__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+                asset_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undefine_asset_api_v1_terms__uid__defines__asset_uid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+                asset_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_defined_assets_api_v1_terms__uid__defines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermDefinedAssetsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

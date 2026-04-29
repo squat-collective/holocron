@@ -34,6 +34,11 @@ export type {
 	WebhookEventPayload,
 	TagUsage,
 	TagList,
+	Term,
+	TermCreate,
+	TermUpdate,
+	TermStatus,
+	TermDefinedAssets,
 } from "./client";
 
 // Errors

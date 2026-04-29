@@ -35,6 +35,12 @@ class RelationType(str, Enum):
     #                   field_path: "Sheet/Table/Col" | null, note?: str}
     APPLIES_TO = "applies_to"
 
+    # Glossary edges — wire business terms into the catalog.
+    DEFINES = "defines"  # Term -> Asset
+    STEWARDS = "stewards"  # Actor -> Term
+    RELATED_TO = "related_to"  # Term <-> Term
+    SYNONYM_OF = "synonym_of"  # Term <-> Term
+
 
 class RelationCreate(BaseModel):
     """Request body for creating a relation."""
