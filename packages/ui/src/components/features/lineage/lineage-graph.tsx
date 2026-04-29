@@ -288,8 +288,17 @@ function LineageGraphInner({
 			{/* Graph canvas. Until the initial relations + rules fetches
 			    complete we show only the spinner — otherwise the user would
 			    watch the centre node pop in, then edges, then rules, which
-			    reads as a glitchy half-loaded graph. */}
-			<div className="flex-1 min-h-[320px] w-full rounded-lg border border-primary/15 bg-background/20 relative overflow-hidden">
+			    reads as a glitchy half-loaded graph.
+			    Fixed `h-[60vh]` instead of `flex-1` because the page's
+			    `<main>` uses `min-h-[…]` (PR #19, to allow page-level
+			    scroll on tall wizards). With an unbounded parent height
+			    `flex-1` can't grow, so ReactFlow's ResizeObserver reads
+			    a 0-height container and refuses to render — that's the
+			    "React Flow parent container needs a width and a height"
+			    warning. Pinning to a viewport-relative height decouples
+			    the canvas from the flex chain entirely and stays
+			    responsive without breaking the page's scroll model. */}
+			<div className="h-[60vh] min-h-[320px] w-full rounded-lg border border-primary/15 bg-background/20 relative overflow-hidden">
 				{isInitialLoading ? (
 					<LoadingOverlay />
 				) : (
