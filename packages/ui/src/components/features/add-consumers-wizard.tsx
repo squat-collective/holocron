@@ -9,12 +9,13 @@ import {
 	Kbd,
 	useWizardAutoFocus,
 	useWizardFocus,
+	WizardBody,
+	WizardDialogContent,
 	WizardFocusProvider,
 } from "@/components/features/wizard-shared";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
-	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
@@ -203,7 +204,7 @@ function ConsumersFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 				if (!next) cancel();
 			}}
 		>
-			<DialogContent
+			<WizardDialogContent
 				className="sm:max-w-lg bg-card/90 backdrop-blur-xl border-primary/20"
 				onKeyDown={handleDialogKey}
 				onOpenAutoFocus={(e) => e.preventDefault()}
@@ -218,14 +219,16 @@ function ConsumersFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-4 pt-1">
+				<WizardBody>
 					<p className="text-sm text-muted-foreground">
 						People or teams who use this asset. Add as many as you like — each becomes a{" "}
 						<code className="text-xs">uses</code> relation.
 					</p>
 
 					{picks.length > 0 && (
-						<div className="flex flex-wrap gap-1.5">
+						// Bound the chip stack so a long pick list scrolls within
+						// itself rather than crowding out the search input below.
+						<div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
 							{picks.map((m, i) => {
 								const Icon = getActorTypeIcon(m.type);
 								return (
@@ -262,13 +265,13 @@ function ConsumersFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 						renderTail={renderTail}
 						onBackspaceEmpty={onBackspaceEmpty}
 					/>
-				</div>
+				</WizardBody>
 
-				<div className="text-[11px] text-muted-foreground/70 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+				<div className="text-[11px] text-muted-foreground/70 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2">
 					<Kbd>↑↓</Kbd> pick · <Kbd>↵</Kbd> add · <Kbd>⌫</Kbd> remove last · <Kbd>⌃↵</Kbd> link all
 				</div>
 
-				<DialogFooter className="sm:justify-between gap-2 pt-2">
+				<DialogFooter className="sm:justify-between gap-2 pt-3">
 					<Button type="button" variant="ghost" onClick={cancel}>
 						Cancel
 					</Button>
@@ -281,7 +284,7 @@ function ConsumersFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 								: `Link ${picks.length} consumers`}
 					</Button>
 				</DialogFooter>
-			</DialogContent>
+			</WizardDialogContent>
 		</Dialog>
 	);
 }

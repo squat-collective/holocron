@@ -10,12 +10,13 @@ import {
 	Stepper,
 	useWizardAutoFocus,
 	useWizardFocus,
+	WizardBody,
+	WizardDialogContent,
 	WizardFocusProvider,
 } from "@/components/features/wizard-shared";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
-	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
@@ -242,7 +243,7 @@ function RelationFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent
+			<WizardDialogContent
 				className="sm:max-w-lg bg-card/90 backdrop-blur-xl border-primary/20"
 				onKeyDown={handleDialogKey}
 				onOpenAutoFocus={(event) => {
@@ -259,42 +260,46 @@ function RelationFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 					</DialogDescription>
 				</DialogHeader>
 
-				<Stepper current={stepIndex} total={steps.length} />
-
-				<div
-					key={step}
-					className="min-h-[200px] animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
-				>
-					{step === "type" && (
-						<StepRelationType
-							value={data.type}
-							onCommit={(v) => {
-								setData((d) => ({ ...d, type: v }));
-								setTimeout(next, 90);
-							}}
-						/>
-					)}
-					{step === "source" && (
-						<StepEntityPicker
-							label="Who or what is the source?"
-							hint="The starting side of the relation."
-							value={data.source}
-							onChange={(v) => setData((d) => ({ ...d, source: v }))}
-							onEnter={() => canAdvance && next()}
-						/>
-					)}
-					{step === "target" && (
-						<StepEntityPicker
-							label="And the target?"
-							hint="The other side of the relation."
-							value={data.target}
-							onChange={(v) => setData((d) => ({ ...d, target: v }))}
-							excludeUid={data.source?.uid}
-							onEnter={() => canAdvance && next()}
-						/>
-					)}
-					{step === "review" && <StepReview data={data} />}
+				<div className="pt-3">
+					<Stepper current={stepIndex} total={steps.length} />
 				</div>
+
+				<WizardBody>
+					<div
+						key={step}
+						className="min-h-[200px] animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
+					>
+						{step === "type" && (
+							<StepRelationType
+								value={data.type}
+								onCommit={(v) => {
+									setData((d) => ({ ...d, type: v }));
+									setTimeout(next, 90);
+								}}
+							/>
+						)}
+						{step === "source" && (
+							<StepEntityPicker
+								label="Who or what is the source?"
+								hint="The starting side of the relation."
+								value={data.source}
+								onChange={(v) => setData((d) => ({ ...d, source: v }))}
+								onEnter={() => canAdvance && next()}
+							/>
+						)}
+						{step === "target" && (
+							<StepEntityPicker
+								label="And the target?"
+								hint="The other side of the relation."
+								value={data.target}
+								onChange={(v) => setData((d) => ({ ...d, target: v }))}
+								excludeUid={data.source?.uid}
+								onEnter={() => canAdvance && next()}
+							/>
+						)}
+						{step === "review" && <StepReview data={data} />}
+					</div>
+				</WizardBody>
 
 				<HintStrip step={step} canBack={stepIndex > 0} />
 
@@ -332,7 +337,7 @@ function RelationFlow({ frame, isTop }: { frame: Frame; isTop: boolean }) {
 						)}
 					</div>
 				</DialogFooter>
-			</DialogContent>
+			</WizardDialogContent>
 		</Dialog>
 	);
 }
