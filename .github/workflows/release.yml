@@ -44,6 +44,7 @@ jobs:
         image:
           - { name: holocron-api, dockerfile: packages/api/Dockerfile }
           - { name: holocron-ui, dockerfile: packages/ui/Dockerfile }
+          - { name: holocron-mcp-server, dockerfile: packages/mcp-server/Dockerfile }
         platform:
           - { name: linux/amd64, runner: ubuntu-latest, suffix: amd64 }
           - { name: linux/arm64, runner: ubuntu-24.04-arm, suffix: arm64 }
@@ -103,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [holocron-api, holocron-ui]
+        image: [holocron-api, holocron-ui, holocron-mcp-server]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

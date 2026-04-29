@@ -65,7 +65,9 @@ export interface PluginRunResult {
 }
 
 /**
- * Rule payload as returned by the API (SDK has no rules support yet).
+ * Rule payload as returned by the API. Mirrored here because the SDK
+ * does not (yet) surface a `client.rules` resource — once it does,
+ * swap raw fetches in this file for typed calls and remove this type.
  */
 export interface RuleRecord {
 	uid: string;

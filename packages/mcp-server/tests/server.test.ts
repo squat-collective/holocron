@@ -32,6 +32,21 @@ function makeFakeClient(): McpHolocronClient {
 			create: async (r: unknown) => ({ uid: "rel-1", ...(r as object) }),
 			delete: async () => undefined,
 		},
+		entities: {
+			get: async (uid: string) => ({
+				kind: "asset" as const,
+				asset: { uid, name: "fake", type: "dataset" },
+			}),
+		},
+		tags: {
+			list: async () => ({ tags: [] }),
+		},
+		graph: {
+			map: async () => ({ nodes: [], edges: [] }),
+		},
+		events: {
+			list: async () => ({ items: [], total: 0 }),
+		},
 	} as any;
 
 	return {
@@ -58,24 +73,43 @@ describe("createServer", () => {
 
 	test("TOOL_NAMES lists all expected tools", () => {
 		const expected = [
+			// assets
 			"list_assets",
 			"get_asset",
 			"create_asset",
 			"update_asset",
 			"delete_asset",
 			"verify_asset",
+			// actors
 			"list_actors",
 			"get_actor",
 			"create_actor",
 			"update_actor",
 			"delete_actor",
 			"verify_actor",
+			// relations
 			"list_relations",
 			"get_relation",
 			"create_relation",
 			"delete_relation",
 			"verify_relation",
+			// rules
+			"list_rules",
+			"get_rule",
+			"create_rule",
+			"update_rule",
+			"delete_rule",
+			"list_rules_for_asset",
+			"attach_rule",
+			"detach_rule",
+			// polymorphic resolver
+			"get_entity",
+			// catalog-wide
 			"search",
+			"list_tags",
+			"get_graph_map",
+			"list_events",
+			// plugins
 			"list_plugins",
 			"run_plugin",
 		];

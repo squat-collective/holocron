@@ -15,6 +15,11 @@
 #     | bash -s -- --update
 #
 # Add --backup to dump the Neo4j volume to a tarball before pulling.
+#
+# Print a Claude Desktop / Claude Code mcpServers snippet for this
+# install (pinned tag, joined to the holocron network, picks up the
+# admin token from .env if set):
+#   ./install.sh --print-mcp-config
 set -euo pipefail
 
 REPO="${HOLOCRON_REPO:-squat-collective/holocron}"
@@ -22,6 +27,7 @@ VERSION="${HOLOCRON_VERSION:-latest}"
 INSTALL_DIR="${HOLOCRON_DIR:-$PWD/holocron}"
 UPDATE_MODE="${HOLOCRON_UPDATE:-0}"
 BACKUP="${HOLOCRON_BACKUP:-0}"
+PRINT_MCP_CONFIG=0
 
 # --- Args ---
 
@@ -31,8 +37,9 @@ while [ "$#" -gt 0 ]; do
 		--backup|-b) BACKUP=1 ;;
 		--dir) INSTALL_DIR="$2"; shift ;;
 		--version) VERSION="$2"; shift ;;
+		--print-mcp-config) PRINT_MCP_CONFIG=1 ;;
 		-h|--help)
-			sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+			sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
 			exit 0
 			;;
 		*) printf 'unknown arg: %s\n' "$1" >&2; exit 2 ;;
@@ -69,7 +76,58 @@ if ! command -v curl >/dev/null 2>&1; then
 	die "curl is required."
 fi
 
-ok "Using $RUNTIME compose"
+# Stay quiet in --print-mcp-config so the JSON output stays clean for
+# piping straight into a Claude Desktop config edit.
+if [ "$PRINT_MCP_CONFIG" != "1" ]; then
+	ok "Using $RUNTIME compose"
+fi
+
+# --- --print-mcp-config: emit a paste-ready snippet and exit ---
+#
+# Reads the local .env (if present) so we can inject the right
+# HOLOCRON_TOKEN and pin to the deployed image tag. Falls back to
+# `latest` when no install is detected so the snippet is still
+# correct on a fresh checkout.
+if [ "$PRINT_MCP_CONFIG" = "1" ]; then
+	mcp_version="$VERSION"
+	mcp_token=""
+	if [ -f "${INSTALL_DIR}/.env" ]; then
+		# shellcheck disable=SC2086
+		dotenv_version="$(awk -F= '/^HOLOCRON_VERSION=/ {print $2}' "${INSTALL_DIR}/.env" | tr -d '"' | tr -d "'")"
+		dotenv_token="$(awk -F= '/^HOLOCRON_TOKEN=/ {print $2}' "${INSTALL_DIR}/.env" | tr -d '"' | tr -d "'")"
+		[ -n "$dotenv_version" ] && mcp_version="$dotenv_version"
+		[ -n "$dotenv_token" ] && mcp_token="$dotenv_token"
+	fi
+	mcp_image="ghcr.io/${REPO%%/*}/holocron-mcp-server:${mcp_version}"
+	# compose.prod.yml pins the network's actual Docker name to
+	# `holocron` (overriding compose's default `<project>_<network>`
+	# munging), so the docker run snippet can attach by that bare name.
+	mcp_network="holocron"
+
+	# Build the args array literally so the user can paste it into a
+	# Claude Desktop config without further escaping.
+	if [ -n "$mcp_token" ]; then
+		token_args=", \"-e\", \"HOLOCRON_TOKEN=${mcp_token}\""
+	else
+		token_args=""
+	fi
+	cat <<EOF
+{
+  "mcpServers": {
+    "holocron": {
+      "command": "${RUNTIME}",
+      "args": [
+        "run", "-i", "--rm",
+        "--network", "${mcp_network}",
+        "-e", "HOLOCRON_API_URL=http://api:8000"${token_args},
+        "${mcp_image}"
+      ]
+    }
+  }
+}
+EOF
+	exit 0
+fi
 
 # --- Resolve version → download URL ---
 
