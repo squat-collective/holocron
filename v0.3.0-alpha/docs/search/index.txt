@@ -1,0 +1,286 @@
+1:"$Sreact.fragment"
+2:I[3338,["177","static/chunks/app/layout-ccfb345a9f8da372.js"],"ThemeProvider"]
+3:I[5169,["177","static/chunks/app/layout-ccfb345a9f8da372.js"],"GalaxyBackground"]
+4:I[2008,[],""]
+5:I[8622,[],""]
+6:I[6592,["265","static/chunks/265-c7feedf06683ef47.js","714","static/chunks/714-0b66d9c55d7a616d.js","750","static/chunks/app/(site)/layout-d8a20c963c2a8874.js"],"TopNav"]
+7:I[570,["265","static/chunks/265-c7feedf06683ef47.js","714","static/chunks/714-0b66d9c55d7a616d.js","750","static/chunks/app/(site)/layout-d8a20c963c2a8874.js"],"Sidebar"]
+8:I[265,["265","static/chunks/265-c7feedf06683ef47.js","271","static/chunks/app/(site)/docs/%5B...slug%5D/page-f75988a16f373d66.js"],""]
+a:I[9605,[],"OutletBoundary"]
+c:I[8352,[],"AsyncMetadataOutlet"]
+e:I[9605,[],"ViewportBoundary"]
+10:I[9605,[],"MetadataBoundary"]
+11:"$Sreact.suspense"
+13:I[612,[],""]
+:HL["/holocron/v0.3.0-alpha/_next/static/css/046b96c4dee4e665.css","style"]
+0:{"P":null,"b":"3s7EqJjpjIp3QsKr-2aNX","p":"/holocron/v0.3.0-alpha","c":["","docs","search",""],"i":false,"f":[[["",{"children":["(site)",{"children":["docs",{"children":[["slug","search","c"],{"children":["__PAGE__",{}]}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/holocron/v0.3.0-alpha/_next/static/css/046b96c4dee4e665.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","suppressHydrationWarning":true,"children":[["$","head",null,{"children":["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n(function () {\n  try {\n    var stored = localStorage.getItem('theme');\n    var resolved = stored === 'light' || stored === 'dark' ? stored : 'dark';\n    if (resolved === 'dark') document.documentElement.classList.add('dark');\n  } catch (_) {\n    document.documentElement.classList.add('dark');\n  }\n})();\n"}}]}],["$","body",null,{"className":"min-h-screen text-foreground antialiased","children":["$","$L2",null,{"children":[["$","$L3",null,{}],["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]]}]}]]}]]}],{"children":["(site)",["$","$1","c",{"children":[null,[["$","$L6",null,{}],["$","div",null,{"className":"mx-auto flex w-full max-w-7xl gap-8 px-4 lg:px-6","children":[["$","aside",null,{"className":"hidden w-60 shrink-0 lg:block","children":["$","div",null,{"className":"sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto py-6","children":["$","$L7",null,{}]}]}],["$","main",null,{"className":"min-w-0 flex-1 py-8 lg:py-10","children":["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","div",null,{"className":"flex flex-col items-start gap-4 py-16","children":[["$","h1",null,{"className":"text-3xl font-semibold tracking-tight","children":"Lost in space"}],["$","p",null,{"className":"max-w-md text-muted-foreground","children":"That page isn't on our charts. Try the navigation, or jump back to the home shell."}],["$","$L8",null,{"href":"/","className":"inline-flex items-center gap-2 rounded-md border border-border bg-card/40 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-accent","children":"Back to docs"}]]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]]}]]]}],{"children":["docs",["$","$1","c",{"children":[null,["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":[["slug","search","c"],["$","$1","c",{"children":[null,["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":["$L9",null,["$","$La",null,{"children":["$Lb",["$","$Lc",null,{"promise":"$@d"}]]}]]}],{},null,false]},null,false]},null,false]},null,false]},null,false],["$","$1","h",{"children":[null,[["$","$Le",null,{"children":"$Lf"}],null],["$","$L10",null,{"children":["$","div",null,{"hidden":true,"children":["$","$11",null,{"fallback":null,"children":"$L12"}]}]}]]}],false]],"m":"$undefined","G":["$13",[]],"s":false,"S":true}
+f:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+b:null
+14:T5c61,<h1 id="search">Search<a class="anchor" aria-label="Link to section" href="#search">#</a></h1>
+<blockquote>
+<p>Hybrid semantic + keyword search across every entity in the catalog, with a small DSL for power users.</p>
+</blockquote>
+<p><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>GET /api/v1/search?q=...</span></span></code></span> is the only search endpoint. The UI calls it directly; the SDK doesn't wrap it yet.</p>
+<h2 id="what-it-searches">What it searches<a class="anchor" aria-label="Link to section" href="#what-it-searches">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Result <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>kind</span></span></code></span></th>
+<th>Comes from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>asset</span></span></code></span></td>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>:Asset</span></span></code></span> nodes</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>actor</span></span></code></span></td>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>:Actor</span></span></code></span> nodes</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>rule</span></span></code></span></td>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>:Rule</span></span></code></span> nodes</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>container</span></span></code></span></td>
+<td>Schema containers (table, sheet, section)</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>field</span></span></code></span></td>
+<td>Schema columns / measures</td>
+</tr>
+</tbody>
+</table>
+<p>Results are interleaved by score, not grouped by kind. A perfectly named field will rank above a vaguely matching asset.</p>
+<h2 id="how-scoring-works">How scoring works<a class="anchor" aria-label="Link to section" href="#how-scoring-works">#</a></h2>
+<p>Every searchable kind has both:</p>
+<ul>
+<li>A <strong>vector index</strong> over a 384-dim embedding of <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>name + description</span></span></code></span> (BAAI/bge-small-en-v1.5, ONNX via fastembed, CPU-only).</li>
+<li>A <strong>fulltext index</strong> (Lucene through Neo4j) over <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>name + description</span></span></code></span>.</li>
+</ul>
+<p>For each query, the API:</p>
+<ol>
+<li>Parses the query into the structured <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>ParsedQuery</span></span></code></span> (filters, kinds, phrases, negations, graph filters — see DSL below).</li>
+<li>Resolves any graph filters (<span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>owner:</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>uses:</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>feeds:</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>rule_for:</span></span></code></span>) into UID sets via fulltext.</li>
+<li>Fans out per-kind rankers: vector top-N + fulltext top-N.</li>
+<li>Fuses scores with the <strong>probabilistic OR</strong> rule: <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>combined = 1 − (1 − v) × (1 − fts)</span></span></code></span>.</li>
+<li>Applies <strong>kind discounts</strong> so schema nodes don't drown out their parent assets:
+<ul>
+<li>container × <strong>0.85</strong></li>
+<li>field × <strong>0.80</strong></li>
+</ul>
+</li>
+<li>Penalises pure-vector hits when fulltext is dominant: if any FTS hit is above <strong>0.55</strong>, vector-only hits are scaled by <strong>0.55</strong>.</li>
+<li>Sorts by combined score; ties break by kind order.</li>
+</ol>
+<p>Constants live in <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>packages/api/src/holocron/core/services/search_scoring.py</span></span></code></span> and have unit tests in <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>packages/api/tests/unit/test_search_scoring.py</span></span></code></span>.</p>
+<p>See <a href="/docs/architecture/adr/005-hybrid-search">ADR-005</a> for the rationale.</p>
+<h2 id="the-query-dsl">The query DSL<a class="anchor" aria-label="Link to section" href="#the-query-dsl">#</a></h2>
+<p>Bare words are semantic + fulltext. Prefixes scope the result kind. A small set of named operators add filters and graph constraints.</p>
+<h3 id="kind-aliases">Kind aliases<a class="anchor" aria-label="Link to section" href="#kind-aliases">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Alias</th>
+<th>Restricts results to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>a:</span></span></code></span></td>
+<td>Any asset</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>ds:</span></span></code></span></td>
+<td>Datasets</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>dr:</span></span></code></span></td>
+<td>Reports</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>dp:</span></span></code></span></td>
+<td>Processes</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>dsys:</span></span></code></span></td>
+<td>Systems</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>ac:</span></span></code></span></td>
+<td>Any actor</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>p:</span></span></code></span></td>
+<td>People</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>t:</span></span></code></span></td>
+<td>Teams / groups</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>r:</span></span></code></span></td>
+<td>Rules</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>c:</span></span></code></span></td>
+<td>Schema containers</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>f:</span></span></code></span></td>
+<td>Schema fields</td>
+</tr>
+</tbody>
+</table>
+<p>Multiple aliases stack: <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>ds:dr:revenue</span></span></code></span> returns datasets and reports matching "revenue".</p>
+<h3 id="type--severity-filters">Type &#x26; severity filters<a class="anchor" aria-label="Link to section" href="#type--severity-filters">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>type:dataset</span></span></code></span></td>
+<td>(when used with <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>a:</span></span></code></span>) constrain to a specific asset type</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>sev:critical</span></span></code></span></td>
+<td>Rules of severity critical (also <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>warning</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>info</span></span></code></span>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="graph-filters">Graph filters<a class="anchor" aria-label="Link to section" href="#graph-filters">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>owner:&#x3C;name></span></span></code></span></td>
+<td>Owned by an actor matching <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>&#x3C;name></span></span></code></span></td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>member:&#x3C;team></span></span></code></span></td>
+<td>Person is a member of a team matching <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>&#x3C;team></span></span></code></span></td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>uses:&#x3C;asset></span></span></code></span></td>
+<td>Uses an asset matching <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>&#x3C;asset></span></span></code></span></td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>feeds:&#x3C;asset></span></span></code></span></td>
+<td>Anywhere upstream of an asset matching <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>&#x3C;asset></span></span></code></span></td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>rule_for:&#x3C;asset></span></span></code></span></td>
+<td>Applies to an asset matching <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>&#x3C;asset></span></span></code></span></td>
+</tr>
+</tbody>
+</table>
+<p>Graph filter values resolve through fulltext, so <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>owner:tom</span></span></code></span> is fine even if your name is <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>Tom Blanc</span></span></code></span>.</p>
+<h3 id="phrases--negations">Phrases &#x26; negations<a class="anchor" aria-label="Link to section" href="#phrases--negations">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>"customer master"</span></span></code></span></td>
+<td>Literal substring (required)</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>-archived</span></span></code></span> or <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>!archived</span></span></code></span></td>
+<td>Exclude any result whose name/description contains <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>archived</span></span></code></span></td>
+</tr>
+</tbody>
+</table>
+<h3 id="examples">Examples<a class="anchor" aria-label="Link to section" href="#examples">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Query</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>customers</span></span></code></span></td>
+<td>Anything matching "customers"</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>ds:customers</span></span></code></span></td>
+<td>Only datasets matching "customers"</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>ds: -archived</span></span></code></span></td>
+<td>All datasets, excluding archived ones</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>f:email sev:warning</span></span></code></span></td>
+<td>Fields named <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>email</span></span></code></span> (any kind) — <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>sev:</span></span></code></span> is ignored when no rules are in scope</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>owner:Tom feeds:revenue_mart</span></span></code></span></td>
+<td>Things Tom owns that feed the revenue mart</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>r: rule_for:customers</span></span></code></span></td>
+<td>Rules applied to the <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>customers</span></span></code></span> asset</td>
+</tr>
+<tr>
+<td><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>"PII"</span></span></code></span></td>
+<td>Anything mentioning literal "PII"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="forgiveness-rules">Forgiveness rules<a class="anchor" aria-label="Link to section" href="#forgiveness-rules">#</a></h2>
+<p>The parser is intentionally lax:</p>
+<ul>
+<li>Unknown aliases fall back to plain text (<span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>xyz:foo</span></span></code></span> becomes a semantic search for <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>xyz:foo</span></span></code></span>).</li>
+<li>Typos in operator names silently become semantic queries — they don't error out.</li>
+<li>Empty <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>q</span></span></code></span> is allowed and returns the most recently updated entities.</li>
+</ul>
+<p>The trade-off is power-user comfort vs. error feedback. If you want strict validation, use the SDK's typed helpers (when they ship for search).</p>
+<h2 id="response-shape">Response shape<a class="anchor" aria-label="Link to section" href="#response-shape">#</a></h2>
+<figure data-rehype-pretty-code-figure=""><pre tabindex="0" data-language="json" data-theme="github-dark-dimmed github-light"><code data-language="json" data-theme="github-dark-dimmed github-light" style="display: grid;"><span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">{</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">  "items"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: [</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    {</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">      "uid"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"ast-..."</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">,</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">      "kind"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"asset"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">,</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">      "name"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"customers"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">,</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">      "type"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"dataset"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">,</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">      "description"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"..."</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">,</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">      "score"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">0.84</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">,</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">      "highlight"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: [</span><span style="--shiki-dark:#96D0FF;--shiki-light:#032F62">"...customer&#x3C;strong>s&#x3C;/strong>..."</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">]</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">    },</span></span>
+<span data-line=""><span style="--shiki-dark:#FF938A;--shiki-dark-font-style:italic;--shiki-light:#B31D28;--shiki-light-font-style:italic">    ...</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">  ],</span></span>
+<span data-line=""><span style="--shiki-dark:#8DDB8C;--shiki-light:#005CC5">  "total"</span><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">: </span><span style="--shiki-dark:#6CB6FF;--shiki-light:#005CC5">17</span></span>
+<span data-line=""><span style="--shiki-dark:#ADBAC7;--shiki-light:#24292E">}</span></span></code></pre></figure>
+<p><span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>kind</span></span></code></span> is always present and is one of <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>asset</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>actor</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>rule</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>container</span></span></code></span>, <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>field</span></span></code></span>.</p>
+<h2 id="performance-notes">Performance notes<a class="anchor" aria-label="Link to section" href="#performance-notes">#</a></h2>
+<ul>
+<li>Embedding model is loaded <strong>lazily</strong> on first search request (~1 s, ~300 MB resident). After that, queries are sub-100 ms typical.</li>
+<li>Vector indexes are populated synchronously on entity write — first search after a bulk import will reflect new entities immediately.</li>
+<li>Schema projection rebuilds on every asset update; large schemas (>1k fields) make writes slower. There's a TODO to move to a batch job.</li>
+</ul>
+<h2 id="known-gaps">Known gaps<a class="anchor" aria-label="Link to section" href="#known-gaps">#</a></h2>
+<ul>
+<li>No saved searches or query templates.</li>
+<li>No relevance feedback (clicks aren't fed back into ranking).</li>
+<li>No relations fetch from search hit (would need a follow-up call to <span data-rehype-pretty-code-figure=""><code data-language="plaintext" data-theme="github-dark-dimmed github-light"><span data-line=""><span>/relations</span></span></code></span>).</li>
+<li>DSL aliases are hardcoded — not extensible without a code change.</li>
+</ul>9:["$","article",null,{"className":"flex w-full min-w-0 flex-col gap-6","children":[["$","nav",null,{"aria-label":"Breadcrumb","className":"flex items-center gap-1 text-xs text-muted-foreground","children":[["$","$L8",null,{"href":"/","className":"hover:text-foreground","children":"Docs"}],[["$","span","/docs/search",{"className":"flex items-center gap-1","children":[["$","svg",null,{"ref":"$undefined","xmlns":"http://www.w3.org/2000/svg","width":24,"height":24,"viewBox":"0 0 24 24","fill":"none","stroke":"currentColor","strokeWidth":2,"strokeLinecap":"round","strokeLinejoin":"round","className":"lucide lucide-chevron-right h-3 w-3","aria-hidden":"true","children":[["$","path","mthhwq",{"d":"m9 18 6-6-6-6"}],"$undefined"]}],["$","span",null,{"className":"text-foreground","children":"Search"}]]}]]]}],["$","div",null,{"className":"prose-holo w-full","dangerouslySetInnerHTML":{"__html":"$14"}}],"$L15"]}]
+d:{"metadata":[["$","title","0",{"children":"Search · Holocron Docs"}],["$","meta","1",{"name":"description","content":"Declarative data governance — assets, lineage, hybrid search, a 3D map, and a plugin ecosystem."}]],"error":null,"digest":"$undefined"}
+12:"$d:metadata"
+15:["$","aside",null,{"className":"mt-8 rounded-lg border border-border/60 bg-card/30 p-4 backdrop-blur xl:hidden","children":[["$","div",null,{"className":"text-xs font-semibold uppercase tracking-wider text-muted-foreground","children":"On this page"}],["$","ul",null,{"className":"mt-2 flex flex-col gap-1 text-sm","children":[["$","li","what-it-searches",{"className":"text-foreground","children":["$","a",null,{"href":"#what-it-searches","className":"hover:text-primary","children":"What it searches"}]}],["$","li","how-scoring-works",{"className":"text-foreground","children":["$","a",null,{"href":"#how-scoring-works","className":"hover:text-primary","children":"How scoring works"}]}],["$","li","the-query-dsl",{"className":"text-foreground","children":["$","a",null,{"href":"#the-query-dsl","className":"hover:text-primary","children":"The query DSL"}]}],["$","li","kind-aliases",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#kind-aliases","className":"hover:text-primary","children":"Kind aliases"}]}],["$","li","type-severity-filters",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#type-severity-filters","className":"hover:text-primary","children":"Type & severity filters"}]}],["$","li","graph-filters",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#graph-filters","className":"hover:text-primary","children":"Graph filters"}]}],["$","li","phrases-negations",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#phrases-negations","className":"hover:text-primary","children":"Phrases & negations"}]}],["$","li","examples",{"className":"pl-3 text-muted-foreground","children":["$","a",null,{"href":"#examples","className":"hover:text-primary","children":"Examples"}]}],["$","li","forgiveness-rules",{"className":"text-foreground","children":["$","a",null,{"href":"#forgiveness-rules","className":"hover:text-primary","children":"Forgiveness rules"}]}],["$","li","response-shape",{"className":"text-foreground","children":["$","a",null,{"href":"#response-shape","className":"hover:text-primary","children":"Response shape"}]}],["$","li","performance-notes",{"className":"text-foreground","children":["$","a",null,{"href":"#performance-notes","className":"hover:text-primary","children":"Performance notes"}]}],["$","li","known-gaps",{"className":"text-foreground","children":["$","a",null,{"href":"#known-gaps","className":"hover:text-primary","children":"Known gaps"}]}]]}]]}]
