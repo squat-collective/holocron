@@ -23,6 +23,8 @@ from typing import Any
 import networkx as nx
 
 from holocron.api.schemas.graph import (
+    GraphCluster,
+    GraphClusterKind,
     GraphEdge,
     GraphMapResponse,
     GraphNode,
@@ -151,6 +153,7 @@ class GraphService:
 
         positions = self._layout(raw_nodes, raw_edges)
         degree = _degree(raw_nodes, raw_edges)
+        cluster_assignment = _assign_clusters(raw_nodes, raw_edges)
 
         nodes: list[GraphNode] = []
         for rn in raw_nodes:
@@ -171,6 +174,7 @@ class GraphService:
                     z=z,
                     degree=d,
                     size=_size_from_degree(d),
+                    cluster_id=cluster_assignment.get(rn.uid),
                 )
             )
 
@@ -204,14 +208,21 @@ class GraphService:
             max(zs),
         )
 
+        clusters = _build_clusters(raw_nodes, cluster_assignment, positions, degree)
+
         logger.info(
-            "graph.map built nodes=%d edges=%d tier0_nodes=%d",
+            "graph.map built nodes=%d edges=%d tier0_nodes=%d clusters=%d",
             len(nodes),
             len(edges),
             sum(1 for n in nodes if n.lod == LodTier.OVERVIEW),
+            len(clusters),
         )
         return GraphMapResponse(
-            lod=LodTier.ENTITIES, nodes=nodes, edges=edges, bounds=bounds
+            lod=LodTier.ENTITIES,
+            nodes=nodes,
+            edges=edges,
+            clusters=clusters,
+            bounds=bounds,
         )
 
     async def _fetch_topology(self) -> tuple[list[_RawNode], list[_RawEdge]]:
@@ -341,3 +352,139 @@ def _size_from_degree(d: int) -> float:
     """Render size in Sigma's units. Log-scaled so a 100-degree hub is
     only ~3× a leaf, not 100×."""
     return round(4.0 + 2.0 * math.log1p(d), 2)
+
+
+def _cluster_kind_of(rn: _RawNode) -> GraphClusterKind | None:
+    """Identify cluster lead nodes — the systems and groups that anchor
+    a cluster. Anything else is a candidate member, never a lead."""
+    if rn.label == "Asset" and rn.subtype == "system":
+        return "system"
+    if rn.label == "Actor" and rn.subtype == "group":
+        return "group"
+    return None
+
+
+def _assign_clusters(
+    raw_nodes: list[_RawNode],
+    raw_edges: list[_RawEdge],
+) -> dict[str, str]:
+    """For each node, decide which cluster lead it belongs to.
+
+    Rules:
+      1. A system asset or group actor IS a lead — it belongs to its own
+         cluster.
+      2. Otherwise, look at the node's neighbours (edges treated as
+         undirected). If any neighbour is a system, the node joins that
+         system's cluster. Else, if any neighbour is a group, it joins
+         that group's cluster.
+      3. Otherwise the node has no cluster — `cluster_id` stays null
+         and the renderer treats it as a loose node.
+
+    Determinism matters because the cluster id is what the client uses
+    as a stable identity across reloads. If two systems both touch the
+    same node, the lower-uid system wins (sort-then-pick) so reordering
+    the input doesn't shuffle clusters.
+    """
+    leads_systems = {
+        rn.uid for rn in raw_nodes if _cluster_kind_of(rn) == "system"
+    }
+    leads_groups = {
+        rn.uid for rn in raw_nodes if _cluster_kind_of(rn) == "group"
+    }
+    all_nodes = {rn.uid for rn in raw_nodes}
+
+    adj: dict[str, set[str]] = {uid: set() for uid in all_nodes}
+    for e in raw_edges:
+        if e.source in adj and e.target in adj:
+            adj[e.source].add(e.target)
+            adj[e.target].add(e.source)
+
+    assignment: dict[str, str] = {}
+    for rn in raw_nodes:
+        if rn.uid in leads_systems or rn.uid in leads_groups:
+            assignment[rn.uid] = rn.uid
+            continue
+        sys_neighbours = sorted(n for n in adj[rn.uid] if n in leads_systems)
+        if sys_neighbours:
+            assignment[rn.uid] = sys_neighbours[0]
+            continue
+        grp_neighbours = sorted(n for n in adj[rn.uid] if n in leads_groups)
+        if grp_neighbours:
+            assignment[rn.uid] = grp_neighbours[0]
+    return assignment
+
+
+def _build_clusters(
+    raw_nodes: list[_RawNode],
+    cluster_assignment: dict[str, str],
+    positions: dict[str, tuple[float, float, float]],
+    degrees: dict[str, int],
+) -> list[GraphCluster]:
+    """Build the cluster list from a node-to-lead assignment.
+
+    One cluster per distinct lead. Centroid + radius are derived from
+    the layout positions of the cluster's members so the renderer can
+    place a single bubble at the cluster's spatial centre and frame
+    fly-to camera moves around the bubble's bounding sphere.
+    """
+    members_by_lead: dict[str, list[str]] = {}
+    for uid, lead_id in cluster_assignment.items():
+        members_by_lead.setdefault(lead_id, []).append(uid)
+
+    nodes_by_uid = {rn.uid: rn for rn in raw_nodes}
+    clusters: list[GraphCluster] = []
+    for lead_uid, member_uids in members_by_lead.items():
+        lead = nodes_by_uid.get(lead_uid)
+        if lead is None:
+            continue
+        kind = _cluster_kind_of(lead)
+        if kind is None:
+            continue
+
+        # Stable sort so the wire order matches the assignment — keeps
+        # diffs against snapshot tests minimal.
+        member_uids.sort()
+
+        positioned = [u for u in member_uids if u in positions]
+        if positioned:
+            xs = [positions[u][0] for u in positioned]
+            ys = [positions[u][1] for u in positioned]
+            zs = [positions[u][2] for u in positioned]
+            cx = sum(xs) / len(xs)
+            cy = sum(ys) / len(ys)
+            cz = sum(zs) / len(zs)
+            spread = max(
+                math.sqrt(
+                    (positions[u][0] - cx) ** 2
+                    + (positions[u][1] - cy) ** 2
+                    + (positions[u][2] - cz) ** 2
+                )
+                for u in positioned
+            )
+        else:
+            cx = cy = cz = 0.0
+            spread = 0.0
+
+        clusters.append(
+            GraphCluster(
+                id=lead_uid,
+                label=lead.name,
+                kind=kind,
+                member_ids=member_uids,
+                centroid_x=cx,
+                centroid_y=cy,
+                centroid_z=cz,
+                # Floor of 50 so a singleton cluster (just the lead) still
+                # renders a hittable bubble; otherwise the radius is the
+                # tightest sphere around its members.
+                radius=max(spread, 50.0),
+                degree=sum(degrees.get(u, 0) for u in member_uids),
+                level=0,
+                parent_id=None,
+            )
+        )
+
+    # Stable cluster ordering — by id — to keep the wire output
+    # predictable across rebuilds.
+    clusters.sort(key=lambda c: c.id)
+    return clusters

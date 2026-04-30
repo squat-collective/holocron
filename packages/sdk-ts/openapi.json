@@ -2850,6 +2850,91 @@
         "title": "FieldHit",
         "description": "A schema field (column, measure, \u2026) that matched."
       },
+      "GraphCluster": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Cluster id \u2014 the lead system/group's UID."
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Display label \u2014 the lead's name."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "system",
+              "group"
+            ],
+            "title": "Kind",
+            "description": "What kind of lead drives this cluster."
+          },
+          "member_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Member Ids",
+            "description": "Every node belonging to this cluster, including the lead itself. Used by the budget-driven expansion to know how many things the cluster expands into."
+          },
+          "centroid_x": {
+            "type": "number",
+            "title": "Centroid X"
+          },
+          "centroid_y": {
+            "type": "number",
+            "title": "Centroid Y"
+          },
+          "centroid_z": {
+            "type": "number",
+            "title": "Centroid Z"
+          },
+          "radius": {
+            "type": "number",
+            "title": "Radius",
+            "description": "Bounding-sphere radius around the centroid, in world units. Drives the cluster bubble's render size and the camera fly-to framing when the user clicks a bubble."
+          },
+          "degree": {
+            "type": "integer",
+            "title": "Degree",
+            "description": "Sum of member degrees \u2014 proxy for cluster importance, used by the budget-driven expansion to rank which clusters open first.",
+            "default": 0
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level",
+            "description": "Depth in the cluster hierarchy. 0 = top-level groups; 1+ reserved for community-detected sub-clusters of a huge level-0 group (deferred until needed).",
+            "default": 0
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id",
+            "description": "Id of the parent cluster (for level-1+ sub-clusters). Null at level 0."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "member_ids",
+          "centroid_x",
+          "centroid_y",
+          "centroid_z",
+          "radius"
+        ],
+        "title": "GraphCluster",
+        "description": "A precomputed group of nodes the renderer can collapse into one\nbubble at far zoom and expand into individual members when zoomed in.\n\nTwo cluster kinds at level 0:\n  - ``system``: led by an Asset of subtype ``system``; members are\n    the system itself plus every node connected to it via a map edge\n    (CONTAINS, OWNS, etc.) that isn't itself a cluster lead.\n  - ``group``: led by an Actor of subtype ``group``; members are the\n    group plus every actor connected to it (typically via MEMBER_OF).\n\nNodes not connected to any cluster lead get ``cluster_id=null`` and\nare rendered as loose nodes alongside the cluster bubbles."
+      },
       "GraphEdge": {
         "properties": {
           "id": {
@@ -2902,6 +2987,14 @@
             },
             "type": "array",
             "title": "Edges"
+          },
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/GraphCluster"
+            },
+            "type": "array",
+            "title": "Clusters",
+            "description": "Precomputed cluster hierarchy. The renderer uses this to decide which nodes to collapse into a single bubble at far zoom under a node-count budget. Empty when there are no system/group leads in the graph."
           },
           "bounds": {
             "prefixItems": [
@@ -2995,6 +3088,18 @@
             "type": "number",
             "title": "Size",
             "description": "Render size hint (degree-based, already normalized)"
+          },
+          "cluster_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Id",
+            "description": "Id of the GraphCluster this node belongs to (the system/group's UID), or null if the node is loose (no system/group connection)."
           }
         },
         "type": "object",

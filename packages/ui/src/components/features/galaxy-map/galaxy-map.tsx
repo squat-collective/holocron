@@ -1,6 +1,10 @@
 "use client";
 
-import type { GraphEdge, GraphNode } from "@squat-collective/holocron-ts";
+import type {
+	GraphCluster,
+	GraphEdge,
+	GraphNode,
+} from "@squat-collective/holocron-ts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Compass, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -29,6 +33,10 @@ import {
 	type LucideIcon,
 	RuleIcon,
 } from "@/lib/icons";
+import {
+	computeExpansion,
+	indexByCluster,
+} from "./cluster-budget";
 import {
 	computeLabelOpacity,
 	FOCUS_HALO_ALPHA,
@@ -266,6 +274,32 @@ interface FgNode extends GraphNode {
 	color: string;
 	_dimmed?: boolean;
 }
+
+/**
+ * Synthetic graph node representing a collapsed cluster — drawn as a
+ * single big bubble that aggregates all the cluster's members under
+ * one click target. Lives alongside real `FgNode`s in the same
+ * graphData; visibility callbacks decide which half is on screen.
+ */
+interface FgClusterBubble {
+	id: string; // `__cluster__${cluster.id}` to avoid colliding with real ids
+	fx: number;
+	fy: number;
+	fz: number;
+	val: number;
+	color: string;
+	_bubble: true;
+	_clusterId: string;
+	_clusterLabel: string;
+	_clusterKind: GraphCluster["kind"];
+	_memberCount: number;
+}
+type FgAnyNode = FgNode | FgClusterBubble;
+
+function isBubble(n: FgAnyNode): n is FgClusterBubble {
+	return (n as FgClusterBubble)._bubble === true;
+}
+
 interface FgLink {
 	source: string;
 	target: string;
@@ -359,14 +393,41 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// Press Enter while a node is hovered (or while a search hit is
 	// keyboard-selected) to toggle its lock.
 	const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
-	const toggleLock = useCallback((id: string) => {
-		setLockedIds((s) => {
-			const next = new Set(s);
-			if (next.has(id)) next.delete(id);
-			else next.add(id);
-			return next;
-		});
-	}, []);
+	// Force-expand a cluster — used when a focus event lands on a node
+	// inside a collapsed cluster, so the user actually sees what they
+	// just locked / searched for. The sticky window keeps the budget
+	// from immediately auto-collapsing it on the next camera nudge.
+	const ensureClusterExpanded = useCallback(
+		(clusterId: string | null | undefined) => {
+			if (!clusterId) return;
+			setExpandedClusterIds((prev) => {
+				if (prev.has(clusterId)) return prev;
+				const next = new Set(prev);
+				next.add(clusterId);
+				lastClusterChangeRef.current.set(
+					clusterId,
+					performance.now(),
+				);
+				return next;
+			});
+		},
+		[],
+	);
+	const toggleLock = useCallback(
+		(id: string) => {
+			setLockedIds((s) => {
+				const next = new Set(s);
+				if (next.has(id)) next.delete(id);
+				else next.add(id);
+				return next;
+			});
+			const node = nodesByIdRef.current.get(id);
+			if (node && !isBubble(node)) {
+				ensureClusterExpanded(node.cluster_id);
+			}
+		},
+		[ensureClusterExpanded],
+	);
 	const unlock = useCallback((id: string) => {
 		setLockedIds((s) => {
 			if (!s.has(id)) return s;
@@ -551,13 +612,18 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			const node = nodesByIdRef.current.get(label.dataset.nodeId);
 			if (!node) return;
 			e.stopPropagation();
+			if (isBubble(node)) {
+				togglePin(node._clusterId);
+				return;
+			}
 			router.push(hrefFor(node));
 		};
 		const onOver = (e: MouseEvent) => {
 			const label = closestLabel(e);
 			if (!label?.dataset.nodeId) return;
 			const node = nodesByIdRef.current.get(label.dataset.nodeId);
-			if (node) setHoveredNode(node);
+			if (!node || isBubble(node)) return;
+			setHoveredNode(node);
 		};
 		const onOut = (e: MouseEvent) => {
 			const label = closestLabel(e);
@@ -582,8 +648,10 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 
 
 	const graphData = useMemo(() => {
-		if (!data) return { nodes: [] as FgNode[], links: [] as FgLink[] };
-		const nodes: FgNode[] = data.nodes.map((n) => ({
+		if (!data) {
+			return { nodes: [] as FgAnyNode[], links: [] as FgLink[] };
+		}
+		const realNodes: FgNode[] = data.nodes.map((n) => ({
 			...n,
 			fx: n.x,
 			fy: n.y,
@@ -591,23 +659,120 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			val: n.size,
 			color: colorFor(n, palette),
 		}));
+		// One synthetic bubble per cluster, parked at the cluster's
+		// centroid. Bubbles share the same graphData as the real nodes
+		// — `nodeVisibility` decides on each render which half is on
+		// screen, so the array reference stays stable across expand /
+		// collapse decisions and the library never tears down its
+		// internal lookup maps.
+		const bubbles: FgClusterBubble[] = (data.clusters ?? []).map((c) => ({
+			id: `__cluster__${c.id}`,
+			fx: c.centroid_x,
+			fy: c.centroid_y,
+			fz: c.centroid_z,
+			val: 4 + Math.log1p(c.member_ids.length) * 4,
+			color: c.kind === "system" ? palette.system : palette.group,
+			_bubble: true,
+			_clusterId: c.id,
+			_clusterLabel: c.label,
+			_clusterKind: c.kind,
+			_memberCount: c.member_ids.length,
+		}));
 		const links: FgLink[] = data.edges.map((e: GraphEdge) => ({
 			source: e.source,
 			target: e.target,
 			type: e.type,
 		}));
-		return { nodes, links };
+		return { nodes: [...realNodes, ...bubbles] as FgAnyNode[], links };
 	}, [data, palette]);
+
+	const clusters = useMemo<GraphCluster[]>(
+		() => data?.clusters ?? [],
+		[data],
+	);
+	const clusterIndex = useMemo(
+		() => indexByCluster(data?.nodes ?? []),
+		[data],
+	);
 
 	// Index by id for O(1) lookup from the delegated label-click handler
 	// below — clicking a label gives us the node id from `data-node-id`,
 	// then we route based on the node's kind.
-	const nodesByIdRef = useRef<Map<string, FgNode>>(new Map());
+	const nodesByIdRef = useRef<Map<string, FgAnyNode>>(new Map());
 	useEffect(() => {
-		const m = new Map<string, FgNode>();
+		const m = new Map<string, FgAnyNode>();
 		for (const n of graphData.nodes) m.set(n.id, n);
 		nodesByIdRef.current = m;
 	}, [graphData]);
+
+	// Cluster expansion state — which clusters are currently expanded
+	// to their members vs collapsed into a single bubble. Two sources:
+	//   - the budget pass below auto-decides what fits under the
+	//     visible-thing budget given camera position
+	//   - the user can click a bubble to *pin* a cluster open (auto-
+	//     collapse never closes pinned ones); pinning persists until
+	//     the user clicks the bubble again
+	const [expandedClusterIds, setExpandedClusterIds] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const [pinnedClusterIds, setPinnedClusterIds] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const lastClusterChangeRef = useRef<Map<string, number>>(new Map());
+
+	// Recompute the expanded set whenever the camera moves. The budget
+	// hook is intentionally pure — it returns the next set; we only
+	// commit to React state if it changed by reference, which avoids a
+	// re-render storm during a long fly-to animation.
+	useEffect(() => {
+		const fg = fgRef.current;
+		if (!fg) return;
+		const ctrl = fg.controls();
+		if (!ctrl) return;
+		let pending = false;
+		const recompute = () => {
+			pending = false;
+			const cam = fg.camera() as THREE.PerspectiveCamera;
+			const cameraSample = {
+				x: cam.position.x,
+				y: cam.position.y,
+				z: cam.position.z,
+			};
+			setExpandedClusterIds((prev) => {
+				const result = computeExpansion({
+					clusters,
+					looseNodeCount: clusterIndex.loose.length,
+					camera: cameraSample,
+					previous: prev,
+					lastChange: lastClusterChangeRef.current,
+					now: performance.now(),
+					pinnedOpen: pinnedClusterIds,
+				});
+				if (result.changed.size === 0) return prev;
+				const t = performance.now();
+				for (const id of result.changed) {
+					lastClusterChangeRef.current.set(id, t);
+				}
+				return result.expanded;
+			});
+		};
+		const onChange = () => {
+			if (pending) return;
+			pending = true;
+			requestAnimationFrame(recompute);
+		};
+		// Initial pass after data loads — fits the visible set to the
+		// starting camera before any interaction.
+		recompute();
+		const target = ctrl as unknown as {
+			addEventListener?: (e: string, cb: () => void) => void;
+			removeEventListener?: (e: string, cb: () => void) => void;
+		};
+		target.addEventListener?.("change", onChange);
+		return () => {
+			target.removeEventListener?.("change", onChange);
+		};
+	}, [clusters, clusterIndex.loose.length, pinnedClusterIds]);
 
 	// Custom node object — an icosahedron with additive emissive, plus a
 	// soft sprite halo whose size tracks `degree`. Big hubs literally glow.
@@ -617,7 +782,11 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// emphasis) is applied later by mutating the registered materials —
 	// rebuilding here is what previously left ghost labels behind.
 	const buildNodeObject = useCallback((n: unknown) => {
-		const node = n as FgNode;
+		const anyNode = n as FgAnyNode;
+		if (isBubble(anyNode)) {
+			return buildClusterBubble(anyNode);
+		}
+		const node = anyNode;
 		const color = new THREE.Color(node.color);
 		const group = new THREE.Group();
 
@@ -713,7 +882,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			let cz = 0;
 			let count = 0;
 			for (const n of graphData.nodes) {
-				if (!ids.has(n.id)) continue;
+				if (!ids.has(n.id) || isBubble(n)) continue;
 				cx += n.x;
 				cy += n.y;
 				cz += n.z;
@@ -725,7 +894,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			cz /= count;
 			let radius = 60; // floor — keeps a single isolated hit from snapping in too close
 			for (const n of graphData.nodes) {
-				if (!ids.has(n.id)) continue;
+				if (!ids.has(n.id) || isBubble(n)) continue;
 				const r = Math.hypot(n.x - cx, n.y - cy, n.z - cz);
 				if (r > radius) radius = r;
 			}
@@ -898,10 +1067,14 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		}
 		const id = nodeIdForHit(activeHit);
 		const node = graphData.nodes.find((n) => n.id === id);
-		if (!node) return;
+		if (!node || isBubble(node)) return;
 		setKeyboardFocusNode(node);
+		// Open the focused node's cluster if it's currently collapsed —
+		// otherwise the camera flies to a hidden node and the user sees
+		// nothing at the destination.
+		ensureClusterExpanded(node.cluster_id);
 		flyToSeeds([id], 1.4);
-	}, [activeHit, graphData.nodes, flyToSeeds]);
+	}, [activeHit, graphData.nodes, flyToSeeds, ensureClusterExpanded]);
 
 	// Imperative API the parent uses to drive locks + recenters from the
 	// shared search bar (Shift+Enter forwards here when in map mode).
@@ -1021,14 +1194,93 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// fn. Stable identity here means no internal re-evaluation.
 	const emptyNodeLabel = useCallback(() => "", []);
 
-	const handleNodeHover = useCallback(
-		(n: unknown) => setHoveredNode((n as FgNode | null) ?? null),
-		[],
+	// Toggle a cluster's pinned-open state. Pinning an already-pinned
+	// cluster collapses it (and lets the budget pass take over again).
+	// `lastClusterChangeRef` is bumped so the budget pass respects the
+	// sticky window after a manual toggle.
+	const togglePin = useCallback((clusterId: string) => {
+		setPinnedClusterIds((prev) => {
+			const next = new Set(prev);
+			const wasPinned = next.has(clusterId);
+			if (wasPinned) next.delete(clusterId);
+			else next.add(clusterId);
+			lastClusterChangeRef.current.set(clusterId, performance.now());
+			// Keep the expanded state in lock-step with pinning so the
+			// click feels instant — the budget pass will reconcile on
+			// the next camera nudge.
+			setExpandedClusterIds((expSet) => {
+				const expNext = new Set(expSet);
+				if (wasPinned) expNext.delete(clusterId);
+				else expNext.add(clusterId);
+				return expNext;
+			});
+			return next;
+		});
+	}, []);
+
+	// Visibility callbacks — passed to ForceGraph3D. We keep `graphData`
+	// reference-stable across expand/collapse; the library re-evaluates
+	// these per render, so changing `expandedClusterIds` is enough to
+	// swap which nodes / edges are on screen.
+	const nodeVisibility = useCallback(
+		(n: unknown) => {
+			const node = n as FgAnyNode;
+			if (isBubble(node)) {
+				return !expandedClusterIds.has(node._clusterId);
+			}
+			if (!node.cluster_id) return true;
+			return expandedClusterIds.has(node.cluster_id);
+		},
+		[expandedClusterIds],
 	);
+
+	const linkVisibility = useCallback(
+		(l: unknown) => {
+			const link = l as {
+				source: string | { id: string };
+				target: string | { id: string };
+			};
+			const src =
+				typeof link.source === "string" ? link.source : link.source.id;
+			const tgt =
+				typeof link.target === "string" ? link.target : link.target.id;
+			const srcNode = nodesByIdRef.current.get(src);
+			const tgtNode = nodesByIdRef.current.get(tgt);
+			if (!srcNode || !tgtNode) return false;
+			// Both endpoints have to be expanded (or loose) for an edge
+			// to render. Edges that cross a cluster boundary disappear
+			// when the cluster collapses; aggregated bubble-to-bubble
+			// edges are deferred to a later iteration.
+			const srcVisible =
+				isBubble(srcNode) ||
+				!srcNode.cluster_id ||
+				expandedClusterIds.has(srcNode.cluster_id);
+			const tgtVisible =
+				isBubble(tgtNode) ||
+				!tgtNode.cluster_id ||
+				expandedClusterIds.has(tgtNode.cluster_id);
+			return srcVisible && tgtVisible;
+		},
+		[expandedClusterIds],
+	);
+
+	const handleNodeHover = useCallback((n: unknown) => {
+		const node = n as FgAnyNode | null;
+		if (!node) return setHoveredNode(null);
+		// Bubbles get a separate hover affordance (cursor + halo) but
+		// don't drive the per-node hover card — there's no entity to
+		// describe. Real nodes go through the existing hover path.
+		if (isBubble(node)) return setHoveredNode(null);
+		setHoveredNode(node);
+	}, []);
 
 	const handleNodeClick = useCallback(
 		(n: unknown) => {
-			const node = n as FgNode;
+			const node = n as FgAnyNode;
+			if (isBubble(node)) {
+				togglePin(node._clusterId);
+				return;
+			}
 			router.push(hrefFor(node));
 		},
 		[router],
@@ -1084,6 +1336,14 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				// Built-in HTML tooltip disabled — we render our own overlay
 				// that follows the cursor (see <HoverCard /> below).
 				nodeLabel={emptyNodeLabel}
+				// Cluster-aware visibility: real nodes show iff their
+				// cluster is currently expanded (or they're loose);
+				// cluster bubbles show the inverse — visible while
+				// collapsed. graphData itself stays reference-stable
+				// across expansion changes so the library never tears
+				// down its scene graph.
+				nodeVisibility={nodeVisibility}
+				linkVisibility={linkVisibility}
 				linkColor={linkColor}
 				linkWidth={linkWidth}
 				// Don't multiply alpha at the renderer level — the per-link
@@ -1142,7 +1402,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 							<div className="flex flex-wrap gap-1.5">
 								{[...lockedIds].map((id) => {
 									const node = graphData.nodes.find((n) => n.id === id);
-									if (!node) return null;
+									if (!node || isBubble(node)) return null;
 									return (
 										<button
 											key={id}
@@ -1409,6 +1669,74 @@ function HoverCard({
 			</div>
 		</div>
 	);
+}
+
+/**
+ * Build a cluster-bubble three.js object — drawn instead of N
+ * individual icosahedra when a cluster is collapsed. A single big
+ * additive sphere with a member-count label and a faint dashed halo
+ * so it visually reads as "container of N things, not a node".
+ *
+ * Module-level (not a hook) so `buildNodeObject` can stay
+ * `useCallback`'d with empty deps — the library only invokes it once
+ * per id, and bubble visuals don't depend on React state.
+ */
+function buildClusterBubble(bubble: FgClusterBubble): THREE.Group {
+	const color = new THREE.Color(bubble.color);
+	const group = new THREE.Group();
+
+	const radius = Math.max(8, bubble.val * 1.4);
+	const sphereGeo = new THREE.SphereGeometry(radius, 16, 12);
+	const sphereMat = new THREE.MeshBasicMaterial({
+		color,
+		transparent: true,
+		opacity: 0.22,
+		depthWrite: false,
+	});
+	group.add(new THREE.Mesh(sphereGeo, sphereMat));
+
+	// Wireframe shell — gives the bubble a "cluster, not a node" feel
+	// at any zoom; the icosahedron real nodes use is solid by contrast.
+	const wireGeo = new THREE.IcosahedronGeometry(radius * 0.92, 1);
+	const wireMat = new THREE.MeshBasicMaterial({
+		color,
+		wireframe: true,
+		transparent: true,
+		opacity: 0.55,
+	});
+	group.add(new THREE.Mesh(wireGeo, wireMat));
+
+	// Halo — one extra sprite to flag clusters at far zoom even when the
+	// shell is barely a few pixels.
+	const haloMat = new THREE.SpriteMaterial({
+		map: getHaloTexture(),
+		color,
+		transparent: true,
+		opacity: 0.35,
+		blending: THREE.AdditiveBlending,
+		depthWrite: false,
+	});
+	const halo = new THREE.Sprite(haloMat);
+	halo.scale.set(radius * 5, radius * 5, 1);
+	group.add(halo);
+
+	// Label: name + count. Ridable by the same delegated label-click
+	// handler real nodes use — `data-node-id` exposes the *bubble id*
+	// (`__cluster__...`) which the click handler can detect.
+	const labelEl = document.createElement("div");
+	labelEl.className = "galaxy-label galaxy-label-bubble";
+	labelEl.dataset.nodeId = bubble.id;
+	const nameSpan = document.createElement("span");
+	nameSpan.textContent = bubble._clusterLabel;
+	const countSpan = document.createElement("span");
+	countSpan.className = "galaxy-label-count";
+	countSpan.textContent = `${bubble._memberCount}`;
+	labelEl.appendChild(nameSpan);
+	labelEl.appendChild(countSpan);
+	const labelObj = new CSS2DObject(labelEl);
+	labelObj.position.set(0, radius + 4, 0);
+	group.add(labelObj);
+	return group;
 }
 
 /**

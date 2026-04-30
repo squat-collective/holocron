@@ -27,6 +27,7 @@ export type {
 	GraphMap,
 	GraphNode,
 	GraphEdge,
+	GraphCluster,
 	LodTier,
 	Webhook,
 	WebhookCreate,

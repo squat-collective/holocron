@@ -928,6 +928,72 @@ export interface components {
             description?: string | null;
         };
         /**
+         * GraphCluster
+         * @description A precomputed group of nodes the renderer can collapse into one
+         *     bubble at far zoom and expand into individual members when zoomed in.
+         *
+         *     Two cluster kinds at level 0:
+         *       - ``system``: led by an Asset of subtype ``system``; members are
+         *         the system itself plus every node connected to it via a map edge
+         *         (CONTAINS, OWNS, etc.) that isn't itself a cluster lead.
+         *       - ``group``: led by an Actor of subtype ``group``; members are the
+         *         group plus every actor connected to it (typically via MEMBER_OF).
+         *
+         *     Nodes not connected to any cluster lead get ``cluster_id=null`` and
+         *     are rendered as loose nodes alongside the cluster bubbles.
+         */
+        GraphCluster: {
+            /**
+             * Id
+             * @description Cluster id — the lead system/group's UID.
+             */
+            id: string;
+            /**
+             * Label
+             * @description Display label — the lead's name.
+             */
+            label: string;
+            /**
+             * Kind
+             * @description What kind of lead drives this cluster.
+             * @enum {string}
+             */
+            kind: "system" | "group";
+            /**
+             * Member Ids
+             * @description Every node belonging to this cluster, including the lead itself. Used by the budget-driven expansion to know how many things the cluster expands into.
+             */
+            member_ids: string[];
+            /** Centroid X */
+            centroid_x: number;
+            /** Centroid Y */
+            centroid_y: number;
+            /** Centroid Z */
+            centroid_z: number;
+            /**
+             * Radius
+             * @description Bounding-sphere radius around the centroid, in world units. Drives the cluster bubble's render size and the camera fly-to framing when the user clicks a bubble.
+             */
+            radius: number;
+            /**
+             * Degree
+             * @description Sum of member degrees — proxy for cluster importance, used by the budget-driven expansion to rank which clusters open first.
+             * @default 0
+             */
+            degree: number;
+            /**
+             * Level
+             * @description Depth in the cluster hierarchy. 0 = top-level groups; 1+ reserved for community-detected sub-clusters of a huge level-0 group (deferred until needed).
+             * @default 0
+             */
+            level: number;
+            /**
+             * Parent Id
+             * @description Id of the parent cluster (for level-1+ sub-clusters). Null at level 0.
+             */
+            parent_id?: string | null;
+        };
+        /**
          * GraphEdge
          * @description A relation between two map nodes. Both endpoints are always visible
          *     at their declared `lod`; edges inherit the higher of the two tiers.
@@ -956,6 +1022,11 @@ export interface components {
             nodes: components["schemas"]["GraphNode"][];
             /** Edges */
             edges: components["schemas"]["GraphEdge"][];
+            /**
+             * Clusters
+             * @description Precomputed cluster hierarchy. The renderer uses this to decide which nodes to collapse into a single bubble at far zoom under a node-count budget. Empty when there are no system/group leads in the graph.
+             */
+            clusters?: components["schemas"]["GraphCluster"][];
             /**
              * Bounds
              * @description Layout bounding box in 3D: (x_min, y_min, z_min, x_max, y_max, z_max).
@@ -1022,6 +1093,11 @@ export interface components {
              * @description Render size hint (degree-based, already normalized)
              */
             size: number;
+            /**
+             * Cluster Id
+             * @description Id of the GraphCluster this node belongs to (the system/group's UID), or null if the node is loose (no system/group connection).
+             */
+            cluster_id?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

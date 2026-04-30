@@ -193,6 +193,14 @@ export type GraphNode = components["schemas"]["GraphNode"];
 export type GraphEdge = components["schemas"]["GraphEdge"];
 
 /**
+ * A precomputed cluster of nodes on the map. Renderers use these to
+ * collapse a system's or group's members into a single bubble at far
+ * zoom and expand them to individual nodes when zoomed in.
+ * @category Types
+ */
+export type GraphCluster = components["schemas"]["GraphCluster"];
+
+/**
  * Level-of-detail tier. `0` = overview (systems + teams), `1` = full map.
  * @category Types
  */

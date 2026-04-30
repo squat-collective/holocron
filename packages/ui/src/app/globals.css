@@ -354,3 +354,28 @@
   width: 11px;
   height: 11px;
 }
+
+/* Cluster-bubble label: more weight than a single-node label so a
+   collapsed cluster reads as a "container", and a small count badge
+   tells the user how many nodes the bubble swallows. */
+.galaxy-label-bubble {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border-color: rgba(140, 140, 220, 0.35);
+  background: rgba(15, 18, 32, 0.92);
+}
+.galaxy-label-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: rgba(120, 120, 200, 0.28);
+  color: rgb(226 232 240);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  margin-left: 2px;
+}

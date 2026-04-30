@@ -61,6 +61,82 @@ class GraphNode(BaseModel):
     size: float = Field(
         ..., description="Render size hint (degree-based, already normalized)"
     )
+    cluster_id: str | None = Field(
+        None,
+        description=(
+            "Id of the GraphCluster this node belongs to (the system/group's "
+            "UID), or null if the node is loose (no system/group connection)."
+        ),
+    )
+
+
+GraphClusterKind = Literal["system", "group"]
+
+
+class GraphCluster(BaseModel):
+    """A precomputed group of nodes the renderer can collapse into one
+    bubble at far zoom and expand into individual members when zoomed in.
+
+    Two cluster kinds at level 0:
+      - ``system``: led by an Asset of subtype ``system``; members are
+        the system itself plus every node connected to it via a map edge
+        (CONTAINS, OWNS, etc.) that isn't itself a cluster lead.
+      - ``group``: led by an Actor of subtype ``group``; members are the
+        group plus every actor connected to it (typically via MEMBER_OF).
+
+    Nodes not connected to any cluster lead get ``cluster_id=null`` and
+    are rendered as loose nodes alongside the cluster bubbles.
+    """
+
+    id: str = Field(
+        ..., description="Cluster id — the lead system/group's UID."
+    )
+    label: str = Field(..., description="Display label — the lead's name.")
+    kind: GraphClusterKind = Field(
+        ..., description="What kind of lead drives this cluster."
+    )
+    member_ids: list[str] = Field(
+        ...,
+        description=(
+            "Every node belonging to this cluster, including the lead "
+            "itself. Used by the budget-driven expansion to know how "
+            "many things the cluster expands into."
+        ),
+    )
+    centroid_x: float
+    centroid_y: float
+    centroid_z: float
+    radius: float = Field(
+        ...,
+        description=(
+            "Bounding-sphere radius around the centroid, in world units. "
+            "Drives the cluster bubble's render size and the camera "
+            "fly-to framing when the user clicks a bubble."
+        ),
+    )
+    degree: int = Field(
+        0,
+        description=(
+            "Sum of member degrees — proxy for cluster importance, used "
+            "by the budget-driven expansion to rank which clusters open "
+            "first."
+        ),
+    )
+    level: int = Field(
+        0,
+        description=(
+            "Depth in the cluster hierarchy. 0 = top-level groups; "
+            "1+ reserved for community-detected sub-clusters of a huge "
+            "level-0 group (deferred until needed)."
+        ),
+    )
+    parent_id: str | None = Field(
+        None,
+        description=(
+            "Id of the parent cluster (for level-1+ sub-clusters). Null "
+            "at level 0."
+        ),
+    )
 
 
 class GraphEdge(BaseModel):
@@ -80,6 +156,15 @@ class GraphMapResponse(BaseModel):
     lod: LodTier
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+    clusters: list[GraphCluster] = Field(
+        default_factory=list,
+        description=(
+            "Precomputed cluster hierarchy. The renderer uses this to "
+            "decide which nodes to collapse into a single bubble at far "
+            "zoom under a node-count budget. Empty when there are no "
+            "system/group leads in the graph."
+        ),
+    )
     bounds: tuple[float, float, float, float, float, float] = Field(
         ...,
         description=(
