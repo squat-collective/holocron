@@ -562,8 +562,10 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		apply();
 		// The registry fills as `react-force-graph-3d` lazily builds each
 		// node's three.js object — so the synchronous apply above can hit
-		// an empty (or partial) registry on first data load. Schedule two
-		// follow-up runs to catch nodes that mount after the effect fires.
+		// an empty (or partial) registry on first data load. Schedule
+		// follow-up runs to catch nodes that mount after the effect
+		// fires. (For expansion-driven graphData changes, the
+		// nodesByIdRef effect below schedules its own rAF.)
 		const f1 = requestAnimationFrame(apply);
 		const t = setTimeout(apply, 200);
 		return () => {
@@ -647,45 +649,6 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	}, [router]);
 
 
-	const graphData = useMemo(() => {
-		if (!data) {
-			return { nodes: [] as FgAnyNode[], links: [] as FgLink[] };
-		}
-		const realNodes: FgNode[] = data.nodes.map((n) => ({
-			...n,
-			fx: n.x,
-			fy: n.y,
-			fz: n.z,
-			val: n.size,
-			color: colorFor(n, palette),
-		}));
-		// One synthetic bubble per cluster, parked at the cluster's
-		// centroid. Bubbles share the same graphData as the real nodes
-		// — `nodeVisibility` decides on each render which half is on
-		// screen, so the array reference stays stable across expand /
-		// collapse decisions and the library never tears down its
-		// internal lookup maps.
-		const bubbles: FgClusterBubble[] = (data.clusters ?? []).map((c) => ({
-			id: `__cluster__${c.id}`,
-			fx: c.centroid_x,
-			fy: c.centroid_y,
-			fz: c.centroid_z,
-			val: 4 + Math.log1p(c.member_ids.length) * 4,
-			color: c.kind === "system" ? palette.system : palette.group,
-			_bubble: true,
-			_clusterId: c.id,
-			_clusterLabel: c.label,
-			_clusterKind: c.kind,
-			_memberCount: c.member_ids.length,
-		}));
-		const links: FgLink[] = data.edges.map((e: GraphEdge) => ({
-			source: e.source,
-			target: e.target,
-			type: e.type,
-		}));
-		return { nodes: [...realNodes, ...bubbles] as FgAnyNode[], links };
-	}, [data, palette]);
-
 	const clusters = useMemo<GraphCluster[]>(
 		() => data?.clusters ?? [],
 		[data],
@@ -695,6 +658,92 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		[data],
 	);
 
+	// Ahead of expansion-aware graphData: cluster expansion state.
+	// Declared higher up than its previous spot so `graphData` can
+	// depend on it without forward references.
+	const [expandedClusterIds, setExpandedClusterIds] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const [pinnedClusterIds, setPinnedClusterIds] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const lastClusterChangeRef = useRef<Map<string, number>>(new Map());
+
+	// Only nodes that should actually be in the scene right now end up
+	// in `graphData`. Members of a collapsed cluster aren't here at all
+	// — the library disposes their three.js objects and the scene gets
+	// genuinely smaller. That's the difference from the previous
+	// nodeVisibility-based approach: less to render, less to iterate
+	// per frame, and no orphaned CSS2DObjects sticking around in the
+	// DOM with stale screen positions.
+	//
+	// Cost: every expansion change rebuilds graphData and the library
+	// re-evaluates internal lookups. With hysteresis + sticky timing
+	// the state changes infrequently, so amortized cost is fine.
+	const graphData = useMemo(() => {
+		if (!data) {
+			return { nodes: [] as FgAnyNode[], links: [] as FgLink[] };
+		}
+
+		// Decide which member nodes are visible (member of an expanded
+		// cluster, OR loose with no cluster). Loose nodes are always in.
+		const visibleMemberIds = new Set<string>();
+		for (const n of data.nodes) {
+			if (!n.cluster_id) {
+				visibleMemberIds.add(n.id);
+				continue;
+			}
+			if (expandedClusterIds.has(n.cluster_id)) {
+				visibleMemberIds.add(n.id);
+			}
+		}
+
+		const realNodes: FgNode[] = [];
+		for (const n of data.nodes) {
+			if (!visibleMemberIds.has(n.id)) continue;
+			realNodes.push({
+				...n,
+				fx: n.x,
+				fy: n.y,
+				fz: n.z,
+				val: n.size,
+				color: colorFor(n, palette),
+			});
+		}
+
+		// One bubble per *currently collapsed* cluster. No bubble for
+		// expanded ones — their members are already in the scene.
+		const bubbles: FgClusterBubble[] = [];
+		for (const c of data.clusters ?? []) {
+			if (expandedClusterIds.has(c.id)) continue;
+			bubbles.push({
+				id: `__cluster__${c.id}`,
+				fx: c.centroid_x,
+				fy: c.centroid_y,
+				fz: c.centroid_z,
+				val: 4 + Math.log1p(c.member_ids.length) * 4,
+				color: c.kind === "system" ? palette.system : palette.group,
+				_bubble: true,
+				_clusterId: c.id,
+				_clusterLabel: c.label,
+				_clusterKind: c.kind,
+				_memberCount: c.member_ids.length,
+			});
+		}
+
+		// Edges only render when both endpoints are in the scene.
+		// Cross-cluster edges to a collapsed neighbour disappear; a
+		// later iteration can introduce aggregated bubble-to-X edges.
+		const links: FgLink[] = [];
+		for (const e of data.edges) {
+			if (!visibleMemberIds.has(e.source)) continue;
+			if (!visibleMemberIds.has(e.target)) continue;
+			links.push({ source: e.source, target: e.target, type: e.type });
+		}
+
+		return { nodes: [...realNodes, ...bubbles] as FgAnyNode[], links };
+	}, [data, palette, expandedClusterIds]);
+
 	// Index by id for O(1) lookup from the delegated label-click handler
 	// below — clicking a label gives us the node id from `data-node-id`,
 	// then we route based on the node's kind.
@@ -703,22 +752,20 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		const m = new Map<string, FgAnyNode>();
 		for (const n of graphData.nodes) m.set(n.id, n);
 		nodesByIdRef.current = m;
+		// Drop registry entries for nodes the library just disposed
+		// (cluster collapsed, members removed from graphData). Without
+		// this, applyVisuals would keep poking at freed materials.
+		for (const id of [...labelRegistryRef.current.keys()]) {
+			if (!m.has(id)) labelRegistryRef.current.delete(id);
+		}
+		// Re-apply tier dim + label LOD to newly-built nodes after the
+		// library has had a frame to call buildNodeObject on them. The
+		// current camera position is fine — we just need the visuals
+		// to catch up to the new node set without waiting for a manual
+		// camera nudge.
+		const raf = requestAnimationFrame(() => applyVisualsRef.current?.());
+		return () => cancelAnimationFrame(raf);
 	}, [graphData]);
-
-	// Cluster expansion state — which clusters are currently expanded
-	// to their members vs collapsed into a single bubble. Two sources:
-	//   - the budget pass below auto-decides what fits under the
-	//     visible-thing budget given camera position
-	//   - the user can click a bubble to *pin* a cluster open (auto-
-	//     collapse never closes pinned ones); pinning persists until
-	//     the user clicks the bubble again
-	const [expandedClusterIds, setExpandedClusterIds] = useState<Set<string>>(
-		() => new Set(),
-	);
-	const [pinnedClusterIds, setPinnedClusterIds] = useState<Set<string>>(
-		() => new Set(),
-	);
-	const lastClusterChangeRef = useRef<Map<string, number>>(new Map());
 
 	// Recompute the expanded set whenever the camera moves. The budget
 	// hook is intentionally pure — it returns the next set; we only
@@ -1218,51 +1265,10 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		});
 	}, []);
 
-	// Visibility callbacks — passed to ForceGraph3D. We keep `graphData`
-	// reference-stable across expand/collapse; the library re-evaluates
-	// these per render, so changing `expandedClusterIds` is enough to
-	// swap which nodes / edges are on screen.
-	const nodeVisibility = useCallback(
-		(n: unknown) => {
-			const node = n as FgAnyNode;
-			if (isBubble(node)) {
-				return !expandedClusterIds.has(node._clusterId);
-			}
-			if (!node.cluster_id) return true;
-			return expandedClusterIds.has(node.cluster_id);
-		},
-		[expandedClusterIds],
-	);
-
-	const linkVisibility = useCallback(
-		(l: unknown) => {
-			const link = l as {
-				source: string | { id: string };
-				target: string | { id: string };
-			};
-			const src =
-				typeof link.source === "string" ? link.source : link.source.id;
-			const tgt =
-				typeof link.target === "string" ? link.target : link.target.id;
-			const srcNode = nodesByIdRef.current.get(src);
-			const tgtNode = nodesByIdRef.current.get(tgt);
-			if (!srcNode || !tgtNode) return false;
-			// Both endpoints have to be expanded (or loose) for an edge
-			// to render. Edges that cross a cluster boundary disappear
-			// when the cluster collapses; aggregated bubble-to-bubble
-			// edges are deferred to a later iteration.
-			const srcVisible =
-				isBubble(srcNode) ||
-				!srcNode.cluster_id ||
-				expandedClusterIds.has(srcNode.cluster_id);
-			const tgtVisible =
-				isBubble(tgtNode) ||
-				!tgtNode.cluster_id ||
-				expandedClusterIds.has(tgtNode.cluster_id);
-			return srcVisible && tgtVisible;
-		},
-		[expandedClusterIds],
-	);
+	// Visibility callbacks are gone — graphData itself reflects the
+	// current expansion state. Members of a collapsed cluster aren't
+	// in the array at all; their three.js objects are disposed by the
+	// library and the scene gets genuinely smaller.
 
 	const handleNodeHover = useCallback((n: unknown) => {
 		const node = n as FgAnyNode | null;
@@ -1336,14 +1342,6 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				// Built-in HTML tooltip disabled — we render our own overlay
 				// that follows the cursor (see <HoverCard /> below).
 				nodeLabel={emptyNodeLabel}
-				// Cluster-aware visibility: real nodes show iff their
-				// cluster is currently expanded (or they're loose);
-				// cluster bubbles show the inverse — visible while
-				// collapsed. graphData itself stays reference-stable
-				// across expansion changes so the library never tears
-				// down its scene graph.
-				nodeVisibility={nodeVisibility}
-				linkVisibility={linkVisibility}
 				linkColor={linkColor}
 				linkWidth={linkWidth}
 				// Don't multiply alpha at the renderer level — the per-link
