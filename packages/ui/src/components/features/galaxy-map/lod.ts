@@ -67,14 +67,19 @@ export interface LabelOpacityParams {
  * node degree, and focus tier. Returns a number in [0, 1].
  *
  * The contract:
- *   - Below `dNear`, the label sits at the tier alpha (1.0 for seeds,
- *     0.5 for neighbours, 0.12 for others, 0.92 when no focus is active).
- *   - Above `dFar + hubBonus * log1p(degree)`, the label is invisible.
- *   - Linear lerp between the two thresholds.
- *
- * Hub bonus: a degree-50 hub with `hubBonus=200` gets ~+780 distance
- * before its label fades, while a leaf (degree 0) gets nothing — so as
- * the camera pulls back, leaves fade first and hubs stay anchored.
+ *   - **Seed and neighbour tiers** ignore distance entirely — when the
+ *     user has focused something, the focused node and its 1-hop ring
+ *     stay readable at any zoom. Distance LOD on a focused label felt
+ *     wrong: you tell the system "show me this," and then it fades on
+ *     pan? No.
+ *   - **Other** tier (focused mode, off-tier nodes) caps at the tier
+ *     alpha (~0.12). They're already barely visible; the distance
+ *     falloff would just be noise on top of "very dim."
+ *   - **Unfocused** (no focus active anywhere) is the only tier where
+ *     distance LOD applies. Below `dNear` the label is full alpha;
+ *     above `dFar + hubBonus * log1p(degree)` it's invisible; linear
+ *     lerp in between. Hub bonus keeps high-degree nodes' labels
+ *     alive longer as the camera pulls back.
  */
 export function computeLabelOpacity(p: LabelOpacityParams): number {
 	const {
@@ -87,6 +92,17 @@ export function computeLabelOpacity(p: LabelOpacityParams): number {
 	} = p;
 	const tierAlpha = FOCUS_ALPHA[focusTier];
 	if (tierAlpha === 0) return 0;
+
+	// Focused / 1-hop labels skip the distance LOD: the user has
+	// asked the system to show them this; honour it at any zoom.
+	if (focusTier === "seed" || focusTier === "neighbour") {
+		return tierAlpha;
+	}
+	// Off-tier in focus mode is already aggressively dim; layering
+	// distance falloff on top doesn't add information.
+	if (focusTier === "other") {
+		return tierAlpha;
+	}
 
 	const farForNode = dFar + hubBonus * Math.log1p(Math.max(0, degree));
 

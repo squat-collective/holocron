@@ -79,6 +79,39 @@ describe("computeLabelOpacity", () => {
 		expect(opacity).toBeCloseTo(FOCUS_ALPHA.other);
 		expect(opacity).toBeLessThan(0.2);
 	});
+
+	it("focused (seed) labels ignore distance LOD", () => {
+		// When the user has locked or hovered a node, its label should
+		// stay readable at any zoom — the distance LOD only fires when
+		// nothing is focused.
+		const close = computeLabelOpacity({
+			distance: 0,
+			degree: 0,
+			focusTier: "seed",
+		});
+		const far = computeLabelOpacity({
+			distance: 5000,
+			degree: 0,
+			focusTier: "seed",
+		});
+		expect(close).toBe(FOCUS_ALPHA.seed);
+		expect(far).toBe(FOCUS_ALPHA.seed);
+	});
+
+	it("neighbour (1-hop) labels ignore distance LOD", () => {
+		const close = computeLabelOpacity({
+			distance: 0,
+			degree: 0,
+			focusTier: "neighbour",
+		});
+		const far = computeLabelOpacity({
+			distance: 5000,
+			degree: 0,
+			focusTier: "neighbour",
+		});
+		expect(close).toBe(FOCUS_ALPHA.neighbour);
+		expect(far).toBe(FOCUS_ALPHA.neighbour);
+	});
 });
 
 describe("focusTierFor", () => {

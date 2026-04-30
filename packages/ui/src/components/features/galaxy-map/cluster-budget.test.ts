@@ -25,7 +25,11 @@ const cluster = (overrides: Partial<GraphCluster> = {}): GraphCluster => ({
 const baseInput = (overrides: Partial<ExpansionInputs> = {}): ExpansionInputs => ({
 	clusters: [],
 	looseNodeCount: 0,
-	camera: { x: 0, y: 0, z: 1000 },
+	// Default camera sits inside the auto-expand zone for the default
+	// cluster (radius=100, expandFactor=6 → keep-zone=600). Tests that
+	// want to exercise the zoom gate override this to push the camera
+	// past the threshold.
+	camera: { x: 0, y: 0, z: 100 },
 	previous: new Set(),
 	lastChange: new Map(),
 	now: 1000,
@@ -172,6 +176,77 @@ describe("computeExpansion", () => {
 			baseInput({ clusters, previous }),
 		);
 		expect(expanded.has("c-deleted")).toBe(false);
+	});
+
+	it("zoom gate keeps clusters collapsed when camera is too far", () => {
+		const clusters = [
+			cluster({ id: "c-far", radius: 50, centroid_z: 0 }),
+		];
+		// expandFactor=6 → keep-zone for radius=50 is 300. Camera at
+		// distance 5000 is well outside → no auto-expansion regardless
+		// of how much budget is free.
+		const { expanded } = computeExpansion(
+			baseInput({
+				clusters,
+				camera: { x: 0, y: 0, z: 5000 },
+			}),
+		);
+		expect(expanded.has("c-far")).toBe(false);
+	});
+
+	it("zoom gate auto-collapses a cluster when camera moves far away", () => {
+		const clusters = [
+			cluster({
+				id: "c1",
+				member_ids: ["c1", "n1", "n2"],
+				radius: 50,
+			}),
+		];
+		// previous: c1 was expanded close-up; now camera is far enough
+		// that even hysteresis (collapseFactor=9 → 450) doesn't save it.
+		const { expanded, changed } = computeExpansion(
+			baseInput({
+				clusters,
+				previous: new Set(["c1"]),
+				camera: { x: 0, y: 0, z: 5000 },
+			}),
+		);
+		expect(expanded.has("c1")).toBe(false);
+		expect(changed.has("c1")).toBe(true);
+	});
+
+	it("zoom gate has hysteresis between expand and collapse", () => {
+		// Camera at distance 350 from a radius-50 cluster:
+		//   - expand zone   = 50 * 6 = 300 → 350 > 300 → would NOT auto-expand
+		//   - collapse zone = 50 * 9 = 450 → 350 < 450 → keeps existing expansion
+		// This is the hysteresis band: previously-expanded stays open,
+		// previously-collapsed stays closed.
+		const clusters = [cluster({ id: "c1", radius: 50, centroid_z: 0 })];
+		const camera = { x: 0, y: 0, z: 350 };
+
+		const fromExpanded = computeExpansion(
+			baseInput({ clusters, previous: new Set(["c1"]), camera }),
+		);
+		expect(fromExpanded.expanded.has("c1")).toBe(true);
+
+		const fromCollapsed = computeExpansion(
+			baseInput({ clusters, previous: new Set(), camera }),
+		);
+		expect(fromCollapsed.expanded.has("c1")).toBe(false);
+	});
+
+	it("pinned-open clusters bypass the zoom gate", () => {
+		const clusters = [cluster({ id: "c-far", radius: 50 })];
+		// Camera way outside the keep-zone. Without pinning, this would
+		// stay collapsed (or auto-collapse). Pinned-open survives.
+		const { expanded } = computeExpansion(
+			baseInput({
+				clusters,
+				camera: { x: 0, y: 0, z: 5000 },
+				pinnedOpen: new Set(["c-far"]),
+			}),
+		);
+		expect(expanded.has("c-far")).toBe(true);
 	});
 
 	it("prefers in-frustum candidates in the expand pass", () => {

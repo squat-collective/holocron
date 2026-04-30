@@ -27,12 +27,32 @@ export interface BudgetConfig {
 	highWater: number;
 	/** Per-cluster cooldown after an expand/collapse decision (ms). */
 	stickyMs: number;
+	/**
+	 * Zoom gate for auto-expansion. A cluster only auto-expands if the
+	 * camera is within `expandFactor * cluster.radius` of its centroid
+	 * — at far zoom, every cluster fails the gate so the map reads as
+	 * a clean "architecture view" of bubbles. At close zoom, the gate
+	 * passes and the budget takes over.
+	 *
+	 * Pinned-open clusters bypass this gate entirely (the user said
+	 * yes, expand it, regardless of zoom).
+	 */
+	expandFactor: number;
+	/**
+	 * Zoom gate for auto-collapse, slightly looser than `expandFactor`
+	 * so panning across the threshold doesn't thrash. Once expanded a
+	 * cluster stays expanded until the camera moves to
+	 * `collapseFactor * cluster.radius` away.
+	 */
+	collapseFactor: number;
 }
 
 export const DEFAULT_BUDGET: BudgetConfig = {
 	lowWater: 180,
 	highWater: 220,
 	stickyMs: 500,
+	expandFactor: 6,
+	collapseFactor: 9,
 };
 
 export interface CameraSample {
@@ -144,6 +164,13 @@ export function computeExpansion(input: ExpansionInputs): ExpansionDecision {
 		if (validIds.has(id)) expanded.add(id);
 	}
 
+	const distanceTo = (c: GraphCluster): number => {
+		const dx = c.centroid_x - camera.x;
+		const dy = c.centroid_y - camera.y;
+		const dz = c.centroid_z - camera.z;
+		return Math.sqrt(dx * dx + dy * dy + dz * dz);
+	};
+
 	const isSticky = (id: string): boolean => {
 		const t = lastChange.get(id);
 		if (t === undefined) return false;
@@ -152,6 +179,19 @@ export function computeExpansion(input: ExpansionInputs): ExpansionDecision {
 
 	const changed = new Set<string>();
 	const visible = () => countVisible(clusters, looseNodeCount, expanded);
+
+	// Zoom gate: collapse any auto-expanded cluster that drifted out
+	// of its keep-open zone. Hysteresis: collapseFactor > expandFactor,
+	// so an expanded cluster doesn't collapse the moment the camera
+	// crosses the expansion line.
+	for (const c of clusters) {
+		if (!expanded.has(c.id)) continue;
+		if (pinnedOpen.has(c.id) || isSticky(c.id)) continue;
+		if (distanceTo(c) > c.radius * config.collapseFactor) {
+			expanded.delete(c.id);
+			changed.add(c.id);
+		}
+	}
 
 	// Collapse pass — drop the least useful expansions if we're over budget.
 	// We aim for `lowWater` (not `highWater`) so we don't immediately
@@ -178,6 +218,12 @@ export function computeExpansion(input: ExpansionInputs): ExpansionDecision {
 	} else if (visible() < config.lowWater) {
 		const candidates = clusters
 			.filter((c) => !expanded.has(c.id) && !isSticky(c.id))
+			// Zoom gate — only auto-expand clusters the camera is
+			// close enough to. The bubble's job is to stand in for its
+			// members at zoom levels where the cluster reads as "a
+			// place," not "a list." Pinned-open is handled separately
+			// at the top of this fn so it bypasses this gate.
+			.filter((c) => distanceTo(c) <= c.radius * config.expandFactor)
 			.map((c) => ({
 				c,
 				s: scoreCluster(c, camera),
