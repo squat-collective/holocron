@@ -29,6 +29,12 @@ import {
 	type LucideIcon,
 	RuleIcon,
 } from "@/lib/icons";
+import {
+	computeLabelOpacity,
+	FOCUS_HALO_ALPHA,
+	FOCUS_MESH_ALPHA,
+	focusTierFor,
+} from "./lod";
 
 /**
  * GalaxyMap — the 3D "Google Maps for data" view.
@@ -396,6 +402,10 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// `visible` flag + material opacities + label classes instead of
 	// rebuilding the whole node object — that's how we keep
 	// `buildNodeObject` deps empty and avoid duplicate labels.
+	//
+	// `degree` is mirrored from the node so the per-frame label LOD
+	// path doesn't have to chase the FgNode object — labels are visited
+	// every camera move and avoiding a Map lookup per frame matters.
 	const labelRegistryRef = useRef<
 		Map<
 			string,
@@ -404,6 +414,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				group: THREE.Group;
 				coreMat: THREE.MeshBasicMaterial;
 				haloMat: THREE.SpriteMaterial | null;
+				degree: number;
 			}
 		>
 	>(new Map());
@@ -425,37 +436,149 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		return m;
 	}, [data]);
 
-	// Focus set — every "seed" node (locked + hovered + keyboard-
-	// selected) plus its 1-hop neighbours. Drives both the soft-dim of
-	// off-cluster nodes/edges and the camera framing.
+	// Seed set — strict seeds only (no neighbours). Used for the focus
+	// tier classification: seed (full bright) vs neighbour (1-hop dim)
+	// vs other (background). Lockes + hover + keyboard focus all count.
+	const seedIds = useMemo<Set<string> | null>(() => {
+		const s = new Set<string>(lockedIds);
+		if (hoveredNode) s.add(hoveredNode.id);
+		if (keyboardFocusNode) s.add(keyboardFocusNode.id);
+		return s.size === 0 ? null : s;
+	}, [lockedIds, hoveredNode, keyboardFocusNode]);
+
+	// Focus set — seeds ∪ 1-hop neighbours. Used for the camera fly
+	// framing and the per-link styling. Mesh / label dimming uses the
+	// finer `focusTierFor` lookup directly.
 	const focusSet = useMemo<Set<string> | null>(() => {
-		const seeds = new Set<string>(lockedIds);
-		if (hoveredNode) seeds.add(hoveredNode.id);
-		if (keyboardFocusNode) seeds.add(keyboardFocusNode.id);
-		if (seeds.size === 0) return null;
-		const out = new Set<string>(seeds);
-		for (const id of seeds) {
+		if (!seedIds) return null;
+		const out = new Set<string>(seedIds);
+		for (const id of seedIds) {
 			const ns = adjacency.get(id);
 			if (ns) for (const n of ns) out.add(n);
 		}
 		return out;
-	}, [lockedIds, hoveredNode, keyboardFocusNode, adjacency]);
+	}, [seedIds, adjacency]);
 
-	// Focus visual: in-focus nodes stay full bright; non-focus nodes
-	// soften (mesh + halo + label) but stay clearly visible so the
-	// surrounding galaxy keeps its spatial context. Edges follow the
-	// same rule via the `linkColor` callback below.
+	// Per-frame visual update — runs on focus changes AND on every
+	// camera move (via the OrbitControls `change` listener wired below).
+	//
+	// Labels: opacity = f(camera_distance, node_degree, focus_tier).
+	// Hubs hold their label longer as the camera zooms back; leaves
+	// fade first. Inside a focus, off-tier nodes dim hard (~0.12) so
+	// the seed-cluster reads as the sole bright part of the scene.
+	//
+	// Mesh + halo: focus-tier dim only (no distance falloff). Nodes
+	// are the spatial anchor — they need to stay visible at any zoom.
+	const applyVisualsRef = useRef<(() => void) | null>(null);
 	useEffect(() => {
-		labelRegistryRef.current.forEach(({ obj, coreMat, haloMat }, id) => {
-			const inFocus = !focusSet || focusSet.has(id);
-			coreMat.opacity = inFocus ? 0.95 : 0.5;
-			if (haloMat) haloMat.opacity = inFocus ? 0.45 : 0.18;
-			(obj.element as HTMLElement).classList.toggle(
-				"galaxy-label-dim",
-				!inFocus,
+		const fg = fgRef.current;
+		if (!fg) return;
+		const cam = fg.camera();
+		const tmp = new THREE.Vector3();
+		const apply = () => {
+			labelRegistryRef.current.forEach((entry, id) => {
+				const tier = focusTierFor(id, seedIds, adjacency);
+				entry.coreMat.opacity = FOCUS_MESH_ALPHA[tier];
+				if (entry.haloMat) entry.haloMat.opacity = FOCUS_HALO_ALPHA[tier];
+				entry.group.getWorldPosition(tmp);
+				const distance = cam.position.distanceTo(tmp);
+				const opacity = computeLabelOpacity({
+					distance,
+					degree: entry.degree,
+					focusTier: tier,
+				});
+				const el = entry.obj.element as HTMLElement;
+				el.style.opacity = opacity.toFixed(3);
+				// Faint labels (off-focus background, far-zoom leaves) are
+				// not click targets — at opacity < 0.3 the user can barely
+				// see them, and accidental navigation feels random. Keeps
+				// the label-as-hit-area behaviour scoped to labels the user
+				// can actually read.
+				el.style.pointerEvents = opacity > 0.3 ? "auto" : "none";
+			});
+		};
+		applyVisualsRef.current = apply;
+		apply();
+		// The registry fills as `react-force-graph-3d` lazily builds each
+		// node's three.js object — so the synchronous apply above can hit
+		// an empty (or partial) registry on first data load. Schedule two
+		// follow-up runs to catch nodes that mount after the effect fires.
+		const f1 = requestAnimationFrame(apply);
+		const t = setTimeout(apply, 200);
+		return () => {
+			cancelAnimationFrame(f1);
+			clearTimeout(t);
+			if (applyVisualsRef.current === apply) applyVisualsRef.current = null;
+		};
+	}, [seedIds, adjacency, data]);
+
+	// Subscribe to camera changes — OrbitControls fires `change` on
+	// every drag/scroll/programmatic update, which is exactly when our
+	// distance-based label opacities need to recompute. Cheap: one
+	// pass through the registry per camera nudge.
+	useEffect(() => {
+		const fg = fgRef.current;
+		if (!fg) return;
+		const ctrl = fg.controls();
+		if (!ctrl) return;
+		const handler = () => applyVisualsRef.current?.();
+		// OrbitControls is an EventDispatcher in three.js
+		const target = ctrl as unknown as {
+			addEventListener?: (e: string, cb: () => void) => void;
+			removeEventListener?: (e: string, cb: () => void) => void;
+		};
+		target.addEventListener?.("change", handler);
+		return () => {
+			target.removeEventListener?.("change", handler);
+		};
+	}, [data]);
+
+	// Delegated click + hover on labels — every label exposes its
+	// `data-node-id`, so a single listener on the container covers
+	// every node without one event registration per label. Labels
+	// with `pointer-events: none` (faint / off-focus, applied by the
+	// LOD pass) won't even fire the events, so background nav is safe.
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+		const closestLabel = (e: Event): HTMLElement | null => {
+			const target = e.target as HTMLElement | null;
+			return target?.closest(".galaxy-label") as HTMLElement | null;
+		};
+		const onClick = (e: MouseEvent) => {
+			const label = closestLabel(e);
+			if (!label?.dataset.nodeId) return;
+			const node = nodesByIdRef.current.get(label.dataset.nodeId);
+			if (!node) return;
+			e.stopPropagation();
+			router.push(hrefFor(node));
+		};
+		const onOver = (e: MouseEvent) => {
+			const label = closestLabel(e);
+			if (!label?.dataset.nodeId) return;
+			const node = nodesByIdRef.current.get(label.dataset.nodeId);
+			if (node) setHoveredNode(node);
+		};
+		const onOut = (e: MouseEvent) => {
+			const label = closestLabel(e);
+			if (!label) return;
+			// Moving from one label straight onto another — let `over`
+			// on the new label take care of the swap.
+			const related = (e.relatedTarget as HTMLElement | null)?.closest(
+				".galaxy-label",
 			);
-		});
-	}, [focusSet, data]);
+			if (related) return;
+			setHoveredNode(null);
+		};
+		container.addEventListener("click", onClick);
+		container.addEventListener("mouseover", onOver);
+		container.addEventListener("mouseout", onOut);
+		return () => {
+			container.removeEventListener("click", onClick);
+			container.removeEventListener("mouseover", onOver);
+			container.removeEventListener("mouseout", onOut);
+		};
+	}, [router]);
 
 
 	const graphData = useMemo(() => {
@@ -475,6 +598,16 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		}));
 		return { nodes, links };
 	}, [data, palette]);
+
+	// Index by id for O(1) lookup from the delegated label-click handler
+	// below — clicking a label gives us the node id from `data-node-id`,
+	// then we route based on the node's kind.
+	const nodesByIdRef = useRef<Map<string, FgNode>>(new Map());
+	useEffect(() => {
+		const m = new Map<string, FgNode>();
+		for (const n of graphData.nodes) m.set(n.id, n);
+		nodesByIdRef.current = m;
+	}, [graphData]);
 
 	// Custom node object — an icosahedron with additive emissive, plus a
 	// soft sprite halo whose size tracks `degree`. Big hubs literally glow.
@@ -498,6 +631,20 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		});
 		group.add(new THREE.Mesh(coreGeo, coreMat));
 
+		// Invisible hit sphere — extends the click target ~2× past the
+		// visible icosahedron so the cursor doesn't have to land
+		// pixel-perfect. `depthWrite: false` keeps it from interfering
+		// with the z-buffer; `opacity: 0` keeps it invisible. The
+		// raycaster used by react-force-graph-3d still picks it up
+		// because raycasts ignore material opacity.
+		const hitGeo = new THREE.SphereGeometry(radius * 2, 12, 8);
+		const hitMat = new THREE.MeshBasicMaterial({
+			transparent: true,
+			opacity: 0,
+			depthWrite: false,
+		});
+		group.add(new THREE.Mesh(hitGeo, hitMat));
+
 		// Halo — additive sprite that scales with degree. Invisible on leafs.
 		const haloScale = 3 + Math.log1p(node.degree) * 4;
 		let haloMat: THREE.SpriteMaterial | null = null;
@@ -519,6 +666,11 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		// class toggle on this element later, no rebuild required.
 		const labelEl = document.createElement("div");
 		labelEl.className = "galaxy-label";
+		// Labels are click + hover targets — delegated handlers on the
+		// container read this attribute to map the event back to a node.
+		// Bigger hit area than the sphere itself, plus a discoverable
+		// "click the name" shortcut.
+		labelEl.dataset.nodeId = node.id;
 		labelEl.innerHTML = `<span class="galaxy-label-icon" style="color:${node.color}">${getIconSvg(
 			node.kind,
 			node.subtype,
@@ -531,6 +683,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			group,
 			coreMat,
 			haloMat,
+			degree: node.degree,
 		});
 
 		return group;

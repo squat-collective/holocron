@@ -324,7 +324,12 @@
    compositing layer; with hundreds of labels that's the main lag culprit.
    ========================================================================== */
 .galaxy-label {
-  pointer-events: none;
+  /* CSS2DRenderer's wrapper is `pointer-events: none` so drags pass
+     through to the canvas. Re-enable on labels themselves so they can
+     act as oversized click + hover targets — far easier to land on
+     than the small icosahedron underneath. */
+  pointer-events: auto;
+  cursor: pointer;
   user-select: none;
   white-space: nowrap;
   font-family: var(--font-geist), system-ui, sans-serif;
@@ -340,12 +345,9 @@
   transform: translate(-50%, 0);
   will-change: opacity;
   opacity: 0.92;
-  transition: opacity 220ms ease-out;
-}
-/* Out of the focused cluster → soften but stay readable so the
-   surrounding galaxy keeps its spatial context. */
-.galaxy-label-dim {
-  opacity: 0.35;
+  /* Opacity is driven inline by the per-frame label LOD pass — every
+     camera move recomputes it. A CSS transition would smear those
+     updates over 200ms and make the map feel laggy on drag. */
 }
 .galaxy-label-icon {
   display: inline-flex;
