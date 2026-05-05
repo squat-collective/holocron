@@ -547,25 +547,28 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		return out;
 	}, [seedIds, adjacency]);
 
-	// Surface the focus set independently of cluster state: a surfaced
-	// node is rendered in the scene even when its cluster is still
-	// collapsed. That way locking / searching a node shows just *that*
-	// node + its 1-hop neighbours, instead of forcing the whole cluster
-	// (including dozens of unrelated members) to expand. The cluster's
-	// bubble keeps representing the rest; the surfaced node sits next
-	// to / inside the bubble in 3D space.
+	// Surface seeds only — not their 1-hop neighbours. At zoom-out a
+	// hub seed has dozens of neighbours; surfacing them all defeats
+	// the cluster-bubble architecture view (you'd see the bubbles
+	// erupt into individual member fountains the moment the cursor
+	// crosses a node). Neighbours still get the "neighbour" focus
+	// tier dim if they're already visible — through expanded
+	// clusters, loose nodes, or aggregated edges from the seed's
+	// representative — but they don't get auto-broken-out of their
+	// bubbles. The user can still expand a cluster manually if they
+	// want to dig in.
 	const [surfacedNodeIds, setSurfacedNodeIds] = useState<Set<string>>(
 		() => new Set(),
 	);
 	useEffect(() => {
-		if (!focusSet || focusSet.size === 0) {
+		if (!seedIds || seedIds.size === 0) {
 			setSurfacedNodeIds((prev) => (prev.size === 0 ? prev : new Set()));
 			return;
 		}
 		setSurfacedNodeIds((prev) => {
-			if (prev.size === focusSet.size) {
+			if (prev.size === seedIds.size) {
 				let same = true;
-				for (const id of focusSet) {
+				for (const id of seedIds) {
 					if (!prev.has(id)) {
 						same = false;
 						break;
@@ -573,9 +576,9 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				}
 				if (same) return prev;
 			}
-			return new Set(focusSet);
+			return new Set(seedIds);
 		});
-	}, [focusSet]);
+	}, [seedIds]);
 
 	// Per-frame visual update — runs on focus changes AND on every
 	// camera move (via the OrbitControls `change` listener wired below).
