@@ -774,28 +774,61 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		}
 		// CSS2DRenderer is append-only: it adds a label's <div> to its
 		// container the first time it sees the CSS2DObject in the
-		// scene, but never removes it. After mutating graphData on
-		// expand/collapse, that left orphaned divs frozen at their
-		// last projected position (the "stuck + duplicated labels"
-		// symptom).
+		// scene, but never removes it. With multiple three.js instances
+		// loaded (the `react-force-graph-3d` warning at startup is the
+		// tell), the labels end up parented to a different container
+		// than the CSS2DRenderer instance we hold a ref to — querying
+		// `cssRenderer.domElement.children` finds nothing.
 		//
-		// Detach anything in the container that isn't the currently
-		// registered element for its node id. This handles both
-		// orphans (id no longer in graphData → not in labelDomRef) and
-		// stale duplicates (a previous element for the same id that
-		// the library may have rebuilt past — we keep only the most
-		// recent registration).
+		// Sweep the whole document for `[data-node-id]` and detach
+		// every element that isn't the currently registered one for
+		// its node id. Brutal but reliable: it catches orphans (id no
+		// longer in graphData), stale duplicates (a previous element
+		// for the same id), and labels parented somewhere unexpected.
+		const validElements = new Set(labelDomRef.current.values());
+		const stale: Element[] = [];
+		const allLabels = document.querySelectorAll<HTMLElement>("[data-node-id]");
+		for (const el of allLabels) {
+			if (!validElements.has(el)) stale.push(el);
+		}
+		for (const el of stale) el.remove();
 		const cssRenderer = css2dRendererRef.current;
 		if (cssRenderer) {
 			const dom = cssRenderer.domElement;
-			const validElements = new Set(labelDomRef.current.values());
-			const stale: Element[] = [];
-			for (const child of dom.children) {
-				if (!validElements.has(child as HTMLElement)) {
-					stale.push(child);
+			// TEMPORARY DEBUG — find the actual parent of orphaned labels.
+			const allLabelsInDoc = document.querySelectorAll("[data-node-id]");
+			const parentPath = (el: Element): string => {
+				const path: string[] = [];
+				let cur: Element | null = el.parentElement;
+				let depth = 0;
+				while (cur && depth < 6) {
+					const cls = cur.className && typeof cur.className === "string"
+						? `.${cur.className.split(" ").slice(0, 2).join(".")}`
+						: "";
+					path.push(`${cur.tagName.toLowerCase()}${cls}`);
+					cur = cur.parentElement;
+					depth++;
 				}
+				return path.join(" < ");
+			};
+			const sampleParents = Array.from(allLabelsInDoc)
+				.slice(0, 3)
+				.map((el) => parentPath(el));
+			console.log(
+				`[map] graphData change → nodes=${graphData.nodes.length} ` +
+					`registered=${labelDomRef.current.size} ` +
+					`directChildren=${dom.children.length} ` +
+					`removedThisSweep=${stale.length} ` +
+					`docTotalLabels=${allLabelsInDoc.length}`,
+			);
+			if (allLabelsInDoc.length > graphData.nodes.length * 1.5) {
+				console.warn("[map] Leak parent paths:", sampleParents);
+				// Also: is the renderer's domElement even in the document?
+				console.warn(
+					`[map] cssRenderer.domElement in document? ${document.contains(dom)} ; ` +
+						`parent: ${dom.parentElement?.tagName.toLowerCase()}${dom.parentElement?.className ? "." + dom.parentElement.className.split(" ")[0] : ""}`,
+				);
 			}
-			for (const el of stale) el.remove();
 		}
 		// Re-apply tier dim + label LOD to newly-built nodes after the
 		// library has had a frame to call buildNodeObject on them. The
