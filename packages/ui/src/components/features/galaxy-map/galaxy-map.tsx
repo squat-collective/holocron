@@ -479,8 +479,18 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			}
 		>
 	>(new Map());
+	// Single source of truth for "which DOM element is the current
+	// label for node id X". Both real-node and bubble label divs land
+	// here. The DOM sweep below uses this to detach anything in the
+	// CSS2DRenderer's container that isn't the *current* registered
+	// element — catches plain orphans (id no longer in graphData) AND
+	// same-id duplicates if the library happens to rebuild a node's
+	// threeObject without the old CSS2DObject element going through
+	// CSS2DRenderer's normal lifecycle.
+	const labelDomRef = useRef<Map<string, HTMLElement>>(new Map());
 	useEffect(() => {
 		labelRegistryRef.current = new Map();
+		labelDomRef.current = new Map();
 	}, [data]);
 
 	// Adjacency index — used both for focus-mode label collapse and for
@@ -753,31 +763,39 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		for (const n of graphData.nodes) m.set(n.id, n);
 		nodesByIdRef.current = m;
 		// Drop registry entries for nodes the library just disposed
-		// (cluster collapsed, members removed from graphData). Without
-		// this, applyVisuals would keep poking at freed materials.
+		// (cluster collapsed, removed from graphData). applyVisuals
+		// would otherwise keep poking at freed materials, and the DOM
+		// sweep would lose its source of truth.
 		for (const id of [...labelRegistryRef.current.keys()]) {
 			if (!m.has(id)) labelRegistryRef.current.delete(id);
 		}
-		// CSS2DRenderer's append-only DOM contract: the library appends
-		// each label's <div> to the renderer's container the first time
-		// it sees the CSS2DObject in the scene, but never removes it
-		// when the parent three.js object leaves. Every cluster
-		// expand/collapse builds a fresh Group + fresh CSS2DObject +
-		// fresh <div>, leaving the previous <div> orphaned at its last
-		// projected position — that's the "stuck + duplicated labels"
-		// symptom. Sweep the renderer's container for divs whose
-		// `data-node-id` is no longer in graphData and detach them.
+		for (const id of [...labelDomRef.current.keys()]) {
+			if (!m.has(id)) labelDomRef.current.delete(id);
+		}
+		// CSS2DRenderer is append-only: it adds a label's <div> to its
+		// container the first time it sees the CSS2DObject in the
+		// scene, but never removes it. After mutating graphData on
+		// expand/collapse, that left orphaned divs frozen at their
+		// last projected position (the "stuck + duplicated labels"
+		// symptom).
+		//
+		// Detach anything in the container that isn't the currently
+		// registered element for its node id. This handles both
+		// orphans (id no longer in graphData → not in labelDomRef) and
+		// stale duplicates (a previous element for the same id that
+		// the library may have rebuilt past — we keep only the most
+		// recent registration).
 		const cssRenderer = css2dRendererRef.current;
 		if (cssRenderer) {
 			const dom = cssRenderer.domElement;
-			const orphans: HTMLElement[] = [];
-			for (const el of dom.querySelectorAll<HTMLElement>(
-				"[data-node-id]",
-			)) {
-				const id = el.dataset.nodeId;
-				if (!id || !m.has(id)) orphans.push(el);
+			const validElements = new Set(labelDomRef.current.values());
+			const stale: Element[] = [];
+			for (const child of dom.children) {
+				if (!validElements.has(child as HTMLElement)) {
+					stale.push(child);
+				}
 			}
-			for (const el of orphans) el.remove();
+			for (const el of stale) el.remove();
 		}
 		// Re-apply tier dim + label LOD to newly-built nodes after the
 		// library has had a frame to call buildNodeObject on them. The
@@ -852,7 +870,9 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	const buildNodeObject = useCallback((n: unknown) => {
 		const anyNode = n as FgAnyNode;
 		if (isBubble(anyNode)) {
-			return buildClusterBubble(anyNode);
+			const { group, labelEl } = buildClusterBubble(anyNode);
+			labelDomRef.current.set(anyNode.id, labelEl);
+			return group;
 		}
 		const node = anyNode;
 		const color = new THREE.Color(node.color);
@@ -922,6 +942,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			haloMat,
 			degree: node.degree,
 		});
+		labelDomRef.current.set(node.id, labelEl);
 
 		return group;
 	}, []);
@@ -1698,9 +1719,13 @@ function HoverCard({
  *
  * Module-level (not a hook) so `buildNodeObject` can stay
  * `useCallback`'d with empty deps — the library only invokes it once
- * per id, and bubble visuals don't depend on React state.
+ * per id, and bubble visuals don't depend on React state. The label
+ * element is returned alongside the group so the caller can register
+ * it for the DOM cleanup sweep.
  */
-function buildClusterBubble(bubble: FgClusterBubble): THREE.Group {
+function buildClusterBubble(
+	bubble: FgClusterBubble,
+): { group: THREE.Group; labelEl: HTMLElement } {
 	const color = new THREE.Color(bubble.color);
 	const group = new THREE.Group();
 
@@ -1755,7 +1780,7 @@ function buildClusterBubble(bubble: FgClusterBubble): THREE.Group {
 	const labelObj = new CSS2DObject(labelEl);
 	labelObj.position.set(0, radius + 4, 0);
 	group.add(labelObj);
-	return group;
+	return { group, labelEl };
 }
 
 /**
