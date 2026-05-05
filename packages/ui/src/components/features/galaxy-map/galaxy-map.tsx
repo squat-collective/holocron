@@ -501,6 +501,8 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		labelRegistryRef.current = new Map();
 		labelDomRef.current = new Map();
 		groupsByIdRef.current = new Map();
+		cachedNodesRef.current = new Map();
+		cachedBubblesRef.current = new Map();
 	}, [data]);
 
 	// Adjacency index — used both for focus-mode label collapse and for
@@ -678,6 +680,16 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		[data],
 	);
 
+	// Reuse the same FgNode / FgClusterBubble *object reference* across
+	// graphData rebuilds for ids that haven't disappeared. The library
+	// caches threeObjects by id, but if every rebuild hands it new
+	// object references it can't tell that an unchanged id is unchanged
+	// and rebuilds anyway — that's where the duplicate-labels-on-pan
+	// behaviour was coming from. We only mint new objects for ids we
+	// haven't seen before; everything else is handed back as-is.
+	const cachedNodesRef = useRef<Map<string, FgNode>>(new Map());
+	const cachedBubblesRef = useRef<Map<string, FgClusterBubble>>(new Map());
+
 	// Ahead of expansion-aware graphData: cluster expansion state.
 	// Declared higher up than its previous spot so `graphData` can
 	// depend on it without forward references.
@@ -721,34 +733,55 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		const realNodes: FgNode[] = [];
 		for (const n of data.nodes) {
 			if (!visibleMemberIds.has(n.id)) continue;
-			realNodes.push({
-				...n,
-				fx: n.x,
-				fy: n.y,
-				fz: n.z,
-				val: n.size,
-				color: colorFor(n, palette),
-			});
+			let cached = cachedNodesRef.current.get(n.id);
+			if (!cached) {
+				cached = {
+					...n,
+					fx: n.x,
+					fy: n.y,
+					fz: n.z,
+					val: n.size,
+					color: colorFor(n, palette),
+				};
+				cachedNodesRef.current.set(n.id, cached);
+			}
+			realNodes.push(cached);
+		}
+		// Drop cache entries for nodes no longer visible so they get
+		// freshly built next time they reappear.
+		for (const id of [...cachedNodesRef.current.keys()]) {
+			if (!visibleMemberIds.has(id)) cachedNodesRef.current.delete(id);
 		}
 
 		// One bubble per *currently collapsed* cluster. No bubble for
 		// expanded ones — their members are already in the scene.
 		const bubbles: FgClusterBubble[] = [];
+		const visibleBubbleIds = new Set<string>();
 		for (const c of data.clusters ?? []) {
 			if (expandedClusterIds.has(c.id)) continue;
-			bubbles.push({
-				id: `__cluster__${c.id}`,
-				fx: c.centroid_x,
-				fy: c.centroid_y,
-				fz: c.centroid_z,
-				val: 4 + Math.log1p(c.member_ids.length) * 4,
-				color: c.kind === "system" ? palette.system : palette.group,
-				_bubble: true,
-				_clusterId: c.id,
-				_clusterLabel: c.label,
-				_clusterKind: c.kind,
-				_memberCount: c.member_ids.length,
-			});
+			const bubbleId = `__cluster__${c.id}`;
+			visibleBubbleIds.add(bubbleId);
+			let cached = cachedBubblesRef.current.get(bubbleId);
+			if (!cached) {
+				cached = {
+					id: bubbleId,
+					fx: c.centroid_x,
+					fy: c.centroid_y,
+					fz: c.centroid_z,
+					val: 4 + Math.log1p(c.member_ids.length) * 4,
+					color: c.kind === "system" ? palette.system : palette.group,
+					_bubble: true,
+					_clusterId: c.id,
+					_clusterLabel: c.label,
+					_clusterKind: c.kind,
+					_memberCount: c.member_ids.length,
+				};
+				cachedBubblesRef.current.set(bubbleId, cached);
+			}
+			bubbles.push(cached);
+		}
+		for (const id of [...cachedBubblesRef.current.keys()]) {
+			if (!visibleBubbleIds.has(id)) cachedBubblesRef.current.delete(id);
 		}
 
 		// Edges only render when both endpoints are in the scene.
@@ -926,6 +959,15 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// rebuilding here is what previously left ghost labels behind.
 	const buildNodeObject = useCallback((n: unknown) => {
 		const anyNode = n as FgAnyNode;
+		// Defensive: if the library calls us for an id we already
+		// registered, detach the previous group + label first so we
+		// don't leave a duplicate behind. CSS2DRenderer would otherwise
+		// keep both in its per-frame traversal and re-append the old
+		// element each frame, defeating any sweep.
+		const priorGroup = groupsByIdRef.current.get(anyNode.id);
+		if (priorGroup?.parent) priorGroup.parent.remove(priorGroup);
+		const priorLabel = labelDomRef.current.get(anyNode.id);
+		if (priorLabel?.parentElement) priorLabel.remove();
 		if (isBubble(anyNode)) {
 			const { group, labelEl } = buildClusterBubble(anyNode);
 			labelDomRef.current.set(anyNode.id, labelEl);
