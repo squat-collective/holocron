@@ -293,6 +293,12 @@ interface FgClusterBubble {
 	_clusterLabel: string;
 	_clusterKind: GraphCluster["kind"];
 	_memberCount: number;
+	/**
+	 * Sum of underlying member degrees — used by the label-LOD pass as
+	 * the "node degree" input so heavyweight clusters keep their label
+	 * visible further out than tiny ones.
+	 */
+	_degree: number;
 }
 type FgAnyNode = FgNode | FgClusterBubble;
 
@@ -305,6 +311,14 @@ interface FgLink {
 	target: string;
 	type: string;
 	color?: string;
+	/**
+	 * Aggregated edges — one bubble↔bubble (or bubble↔loose-node) line
+	 * standing in for several underlying member-to-member relations.
+	 * `weight` is the count being aggregated; `type` is "aggregated".
+	 * Renderer styles them as neutral grey with width by weight, so
+	 * the user sees structure-between-clusters without the edge soup.
+	 */
+	weight?: number;
 }
 
 /**
@@ -452,7 +466,9 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			{
 				obj: CSS2DObject;
 				group: THREE.Group;
-				coreMat: THREE.MeshBasicMaterial;
+				// Bubbles don't have a solid icosahedron core — only a
+				// halo. Optional so applyVisuals can null-check.
+				coreMat: THREE.MeshBasicMaterial | null;
 				haloMat: THREE.SpriteMaterial | null;
 				degree: number;
 			}
@@ -580,7 +596,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		const apply = () => {
 			labelRegistryRef.current.forEach((entry, id) => {
 				const tier = focusTierFor(id, seedIds, adjacency);
-				entry.coreMat.opacity = FOCUS_MESH_ALPHA[tier];
+				if (entry.coreMat) entry.coreMat.opacity = FOCUS_MESH_ALPHA[tier];
 				if (entry.haloMat) entry.haloMat.opacity = FOCUS_HALO_ALPHA[tier];
 				entry.group.getWorldPosition(tmp);
 				const distance = cam.position.distanceTo(tmp);
@@ -801,6 +817,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 					_clusterLabel: c.label,
 					_clusterKind: c.kind,
 					_memberCount: c.member_ids.length,
+					_degree: c.degree,
 				};
 				cachedBubblesRef.current.set(bubbleId, cached);
 			}
@@ -810,14 +827,54 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			if (!visibleBubbleIds.has(id)) cachedBubblesRef.current.delete(id);
 		}
 
-		// Edges only render when both endpoints are in the scene.
-		// Cross-cluster edges to a collapsed neighbour disappear; a
-		// later iteration can introduce aggregated bubble-to-X edges.
+		// Edge aggregation: every underlying edge is collapsed through
+		// each endpoint's "visible representative" — the node itself
+		// when it's on screen, otherwise the bubble of its cluster.
+		// Real-to-real edges keep their relation type and colour;
+		// anything touching a bubble becomes a neutral aggregated
+		// line with a weight count, so zoom-out reads as a structural
+		// diagram between clusters instead of dozens of disconnected
+		// islands.
+		const repOf = (id: string): string | null => {
+			if (visibleMemberIds.has(id)) return id;
+			const cid = nodeClusterMap.get(id);
+			if (!cid) return null;
+			const bubbleId = `__cluster__${cid}`;
+			// Only valid if the bubble is actually rendered (cluster
+			// is currently collapsed). If the cluster is expanded but
+			// this specific node isn't surfaced, the edge has nothing
+			// to attach to and we skip it.
+			return expandedClusterIds.has(cid) ? null : bubbleId;
+		};
+
 		const links: FgLink[] = [];
+		const aggregated = new Map<
+			string,
+			{ source: string; target: string; weight: number }
+		>();
 		for (const e of data.edges) {
-			if (!visibleMemberIds.has(e.source)) continue;
-			if (!visibleMemberIds.has(e.target)) continue;
-			links.push({ source: e.source, target: e.target, type: e.type });
+			const repA = repOf(e.source);
+			const repB = repOf(e.target);
+			if (!repA || !repB || repA === repB) continue;
+			const aIsBubble = repA.startsWith("__cluster__");
+			const bIsBubble = repB.startsWith("__cluster__");
+			if (!aIsBubble && !bIsBubble) {
+				links.push({ source: repA, target: repB, type: e.type });
+				continue;
+			}
+			// Aggregate. Order-independent key so (A,B) and (B,A) merge.
+			const key = repA < repB ? `${repA}|${repB}` : `${repB}|${repA}`;
+			const existing = aggregated.get(key);
+			if (existing) existing.weight += 1;
+			else aggregated.set(key, { source: repA, target: repB, weight: 1 });
+		}
+		for (const a of aggregated.values()) {
+			links.push({
+				source: a.source,
+				target: a.target,
+				type: "aggregated",
+				weight: a.weight,
+			});
 		}
 
 		return { nodes: [...realNodes, ...bubbles] as FgAnyNode[], links };
@@ -957,9 +1014,18 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		const priorLabel = labelDomRef.current.get(anyNode.id);
 		if (priorLabel?.parentElement) priorLabel.remove();
 		if (isBubble(anyNode)) {
-			const { group, labelEl } = buildClusterBubble(anyNode);
+			const { group, labelEl, labelObj, haloMat } = buildClusterBubble(
+				anyNode,
+			);
 			labelDomRef.current.set(anyNode.id, labelEl);
 			groupsByIdRef.current.set(anyNode.id, group);
+			labelRegistryRef.current.set(anyNode.id, {
+				obj: labelObj,
+				group,
+				coreMat: null,
+				haloMat,
+				degree: anyNode._degree,
+			});
 			return group;
 		}
 		const node = anyNode;
@@ -1315,6 +1381,14 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				typeof link.source === "string" ? link.source : link.source.id;
 			const tgt =
 				typeof link.target === "string" ? link.target : link.target.id;
+			// Aggregated bubble↔X edges are intentionally muted — they
+			// describe structure ("these clusters relate") not specific
+			// relations, so the relation-type palette doesn't apply.
+			if (link.type === "aggregated") {
+				return focusSet && focusSet.has(src) && focusSet.has(tgt)
+					? "rgba(180, 180, 220, 0.9)"
+					: "rgba(160, 160, 200, 0.45)";
+			}
 			const base = relationColor(link.type, palette);
 			if (!focusSet) return withAlpha(base, 0.45);
 			if (focusSet.has(src) && focusSet.has(tgt)) return withAlpha(base, 0.95);
@@ -1325,11 +1399,20 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 
 	const linkWidth = useCallback(
 		(l: unknown) => {
-			if (!focusSet) return 0.7;
 			const link = l as {
 				source: string | { id: string };
 				target: string | { id: string };
+				type: string;
+				weight?: number;
 			};
+			// Aggregated edges scale width by how many underlying
+			// relations they collapse — a 1-edge bridge stays thin, a
+			// 30-edge highway draws thick. Log-shaped so a 100-edge
+			// hub doesn't become a city block.
+			if (link.type === "aggregated" && link.weight) {
+				return Math.min(6, 0.8 + Math.log1p(link.weight) * 0.9);
+			}
+			if (!focusSet) return 0.7;
 			const src =
 				typeof link.source === "string" ? link.source : link.source.id;
 			const tgt =
@@ -1345,11 +1428,15 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// the unfocused map while halving the per-frame particle work.
 	const linkDirectionalParticles = useCallback(
 		(l: unknown) => {
-			if (!focusSet) return 1;
 			const link = l as {
 				source: string | { id: string };
 				target: string | { id: string };
+				type: string;
 			};
+			// Aggregated edges read as "static structure" — particles
+			// would imply directional flow we don't have.
+			if (link.type === "aggregated") return 0;
+			if (!focusSet) return 1;
 			const src =
 				typeof link.source === "string" ? link.source : link.source.id;
 			const tgt =
@@ -1816,56 +1903,70 @@ function HoverCard({
 }
 
 /**
- * Build a cluster-bubble three.js object — drawn instead of N
- * individual icosahedra when a cluster is collapsed. A single big
- * additive sphere with a member-count label and a faint dashed halo
- * so it visually reads as "container of N things, not a node".
- *
- * Module-level (not a hook) so `buildNodeObject` can stay
- * `useCallback`'d with empty deps — the library only invokes it once
- * per id, and bubble visuals don't depend on React state. The label
- * element is returned alongside the group so the caller can register
- * it for the DOM cleanup sweep.
+ * Deterministic small hue offset per cluster id, so 16 system bubbles
+ * aren't all the same green. Hash into [-0.08, +0.08] in the HSL hue
+ * channel — about ±29° of rotation, enough to distinguish clusters
+ * without leaving the kind's palette band.
  */
-function buildClusterBubble(
-	bubble: FgClusterBubble,
-): { group: THREE.Group; labelEl: HTMLElement } {
-	const color = new THREE.Color(bubble.color);
+function clusterHueOffset(id: string): number {
+	let h = 0;
+	for (let i = 0; i < id.length; i++) {
+		h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+	}
+	return ((Math.abs(h) % 1000) / 1000) * 0.16 - 0.08;
+}
+
+/**
+ * Build a cluster-bubble three.js object — drawn instead of N
+ * individual icosahedra when a cluster is collapsed.
+ *
+ * Visual: a soft additive halo standing in for "place this cluster
+ * sits in the galaxy" and an invisible hit sphere for click. The
+ * earlier wireframe + solid sphere pair was visual noise at zoom-out
+ * (24 of them overlapping) — a single luminous spot reads cleaner
+ * and lets per-cluster hue + label do the differentiating work.
+ *
+ * Returns the label element + label object + halo material so the
+ * caller can register them for the DOM-cleanup sweep and the
+ * focus-tier / distance-LOD applyVisuals pass.
+ */
+function buildClusterBubble(bubble: FgClusterBubble): {
+	group: THREE.Group;
+	labelEl: HTMLElement;
+	labelObj: CSS2DObject;
+	haloMat: THREE.SpriteMaterial;
+} {
+	const baseColor = new THREE.Color(bubble.color);
+	const hueShift = clusterHueOffset(bubble._clusterId);
+	const color = baseColor.clone().offsetHSL(hueShift, 0, 0);
 	const group = new THREE.Group();
 
 	const radius = Math.max(8, bubble.val * 1.4);
-	const sphereGeo = new THREE.SphereGeometry(radius, 16, 12);
-	const sphereMat = new THREE.MeshBasicMaterial({
-		color,
+
+	// Invisible hit sphere — bubbles are click targets ("expand this
+	// cluster"). Bigger than the visual halo so the cursor doesn't
+	// have to hunt the centre.
+	const hitGeo = new THREE.SphereGeometry(radius * 1.6, 12, 8);
+	const hitMat = new THREE.MeshBasicMaterial({
 		transparent: true,
-		opacity: 0.22,
+		opacity: 0,
 		depthWrite: false,
 	});
-	group.add(new THREE.Mesh(sphereGeo, sphereMat));
+	group.add(new THREE.Mesh(hitGeo, hitMat));
 
-	// Wireframe shell — gives the bubble a "cluster, not a node" feel
-	// at any zoom; the icosahedron real nodes use is solid by contrast.
-	const wireGeo = new THREE.IcosahedronGeometry(radius * 0.92, 1);
-	const wireMat = new THREE.MeshBasicMaterial({
-		color,
-		wireframe: true,
-		transparent: true,
-		opacity: 0.55,
-	});
-	group.add(new THREE.Mesh(wireGeo, wireMat));
-
-	// Halo — one extra sprite to flag clusters at far zoom even when the
-	// shell is barely a few pixels.
+	// Soft additive halo — the only visible element. Bigger + softer
+	// than per-node halos so it reads as "area" rather than "a point
+	// source", which is the whole point of a bubble vs a leaf node.
 	const haloMat = new THREE.SpriteMaterial({
 		map: getHaloTexture(),
 		color,
 		transparent: true,
-		opacity: 0.35,
+		opacity: 0.5,
 		blending: THREE.AdditiveBlending,
 		depthWrite: false,
 	});
 	const halo = new THREE.Sprite(haloMat);
-	halo.scale.set(radius * 5, radius * 5, 1);
+	halo.scale.set(radius * 6.5, radius * 6.5, 1);
 	group.add(halo);
 
 	// Label: name + count. Ridable by the same delegated label-click
@@ -1882,9 +1983,9 @@ function buildClusterBubble(
 	labelEl.appendChild(nameSpan);
 	labelEl.appendChild(countSpan);
 	const labelObj = new CSS2DObject(labelEl);
-	labelObj.position.set(0, radius + 4, 0);
+	labelObj.position.set(0, radius * 1.2, 0);
 	group.add(labelObj);
-	return { group, labelEl };
+	return { group, labelEl, labelObj, haloMat };
 }
 
 /**
