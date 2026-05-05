@@ -413,6 +413,27 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		},
 		[],
 	);
+
+	// Batch version — single setState for the whole set, no churn if
+	// every cluster is already expanded. Used by focus mode to open
+	// the seeds' clusters and their 1-hop neighbours' clusters in one
+	// shot, rather than firing N setStates.
+	const ensureClustersExpanded = useCallback(
+		(clusterIds: Iterable<string>) => {
+			setExpandedClusterIds((prev) => {
+				let next: Set<string> | null = null;
+				const t = performance.now();
+				for (const id of clusterIds) {
+					if (prev.has(id)) continue;
+					if (!next) next = new Set(prev);
+					next.add(id);
+					lastClusterChangeRef.current.set(id, t);
+				}
+				return next ?? prev;
+			});
+		},
+		[],
+	);
 	const toggleLock = useCallback(
 		(id: string) => {
 			setLockedIds((s) => {
@@ -519,6 +540,16 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		return m;
 	}, [data]);
 
+	// Look up a node's cluster from the *full* dataset, including
+	// nodes currently hidden behind a collapsed bubble. Focus mode
+	// uses this to expand the clusters of 1-hop neighbours of a
+	// focused seed even when those neighbours aren't on screen yet.
+	const nodeClusterMap = useMemo(() => {
+		const m = new Map<string, string | null | undefined>();
+		if (data) for (const n of data.nodes) m.set(n.id, n.cluster_id);
+		return m;
+	}, [data]);
+
 	// Seed set — strict seeds only (no neighbours). Used for the focus
 	// tier classification: seed (full bright) vs neighbour (1-hop dim)
 	// vs other (background). Lockes + hover + keyboard focus all count.
@@ -541,6 +572,27 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		}
 		return out;
 	}, [seedIds, adjacency]);
+
+	// Keep the cluster system in lock-step with focus: when the user
+	// locks / hovers / searches a node, expand the clusters of every
+	// node in the focus set (seed + 1-hop) so the context is actually
+	// visible, even for neighbours hiding behind a still-collapsed
+	// bubble. Without this the focus mode showed an island of one
+	// node and a bunch of empty space where its neighbourhood lived.
+	//
+	// The expansions don't pin — once focus drops and the camera
+	// settles, the budget pass can collapse them back if the zoom
+	// gate fails. The 500ms sticky window prevents thrash if the user
+	// is just skimming hover targets.
+	useEffect(() => {
+		if (!focusSet || focusSet.size === 0) return;
+		const ids = new Set<string>();
+		for (const nodeId of focusSet) {
+			const cid = nodeClusterMap.get(nodeId);
+			if (cid) ids.add(cid);
+		}
+		if (ids.size > 0) ensureClustersExpanded(ids);
+	}, [focusSet, nodeClusterMap, ensureClustersExpanded]);
 
 	// Per-frame visual update — runs on focus changes AND on every
 	// camera move (via the OrbitControls `change` listener wired below).
@@ -849,44 +901,6 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			if (!validElements.has(el)) stale.push(el);
 		}
 		for (const el of stale) el.remove();
-		const cssRenderer = css2dRendererRef.current;
-		if (cssRenderer) {
-			const dom = cssRenderer.domElement;
-			// TEMPORARY DEBUG — find the actual parent of orphaned labels.
-			const allLabelsInDoc = document.querySelectorAll("[data-node-id]");
-			const parentPath = (el: Element): string => {
-				const path: string[] = [];
-				let cur: Element | null = el.parentElement;
-				let depth = 0;
-				while (cur && depth < 6) {
-					const cls = cur.className && typeof cur.className === "string"
-						? `.${cur.className.split(" ").slice(0, 2).join(".")}`
-						: "";
-					path.push(`${cur.tagName.toLowerCase()}${cls}`);
-					cur = cur.parentElement;
-					depth++;
-				}
-				return path.join(" < ");
-			};
-			const sampleParents = Array.from(allLabelsInDoc)
-				.slice(0, 3)
-				.map((el) => parentPath(el));
-			console.log(
-				`[map] graphData change → nodes=${graphData.nodes.length} ` +
-					`registered=${labelDomRef.current.size} ` +
-					`directChildren=${dom.children.length} ` +
-					`removedThisSweep=${stale.length} ` +
-					`docTotalLabels=${allLabelsInDoc.length}`,
-			);
-			if (allLabelsInDoc.length > graphData.nodes.length * 1.5) {
-				console.warn("[map] Leak parent paths:", sampleParents);
-				// Also: is the renderer's domElement even in the document?
-				console.warn(
-					`[map] cssRenderer.domElement in document? ${document.contains(dom)} ; ` +
-						`parent: ${dom.parentElement?.tagName.toLowerCase()}${dom.parentElement?.className ? "." + dom.parentElement.className.split(" ")[0] : ""}`,
-				);
-			}
-		}
 		// Re-apply tier dim + label LOD to newly-built nodes after the
 		// library has had a frame to call buildNodeObject on them. The
 		// current camera position is fine — we just need the visuals
