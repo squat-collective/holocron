@@ -488,9 +488,19 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// threeObject without the old CSS2DObject element going through
 	// CSS2DRenderer's normal lifecycle.
 	const labelDomRef = useRef<Map<string, HTMLElement>>(new Map());
+	// Tracks every three.js Group we hand back from buildNodeObject —
+	// real nodes and bubbles alike. When graphData mutates the library
+	// disposes affected nodes' resources, but it doesn't reliably
+	// remove the Group from its scene parent. CSS2DRenderer then keeps
+	// finding the orphan Group's CSS2DObject every frame and
+	// re-appending its label element to the DOM, undoing any sweep we
+	// run from React-side. The graphData effect below uses this map
+	// to actively detach orphan groups from the scene tree.
+	const groupsByIdRef = useRef<Map<string, THREE.Group>>(new Map());
 	useEffect(() => {
 		labelRegistryRef.current = new Map();
 		labelDomRef.current = new Map();
+		groupsByIdRef.current = new Map();
 	}, [data]);
 
 	// Adjacency index — used both for focus-mode label collapse and for
@@ -766,6 +776,20 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		// (cluster collapsed, removed from graphData). applyVisuals
 		// would otherwise keep poking at freed materials, and the DOM
 		// sweep would lose its source of truth.
+		//
+		// For groups specifically: also detach the orphan THREE.Group
+		// from its scene parent. The library's own disposal doesn't
+		// always remove the Group from the scene tree — that's the
+		// reason CSS2DRenderer kept re-appending old label elements
+		// every frame, defeating the DOM sweep. Removing the Group
+		// from its parent takes its CSS2DObject off the traversal
+		// path entirely.
+		for (const id of [...groupsByIdRef.current.keys()]) {
+			if (m.has(id)) continue;
+			const group = groupsByIdRef.current.get(id);
+			if (group?.parent) group.parent.remove(group);
+			groupsByIdRef.current.delete(id);
+		}
 		for (const id of [...labelRegistryRef.current.keys()]) {
 			if (!m.has(id)) labelRegistryRef.current.delete(id);
 		}
@@ -905,6 +929,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		if (isBubble(anyNode)) {
 			const { group, labelEl } = buildClusterBubble(anyNode);
 			labelDomRef.current.set(anyNode.id, labelEl);
+			groupsByIdRef.current.set(anyNode.id, group);
 			return group;
 		}
 		const node = anyNode;
@@ -976,6 +1001,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			degree: node.degree,
 		});
 		labelDomRef.current.set(node.id, labelEl);
+		groupsByIdRef.current.set(node.id, group);
 
 		return group;
 	}, []);
