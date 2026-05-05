@@ -758,6 +758,27 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		for (const id of [...labelRegistryRef.current.keys()]) {
 			if (!m.has(id)) labelRegistryRef.current.delete(id);
 		}
+		// CSS2DRenderer's append-only DOM contract: the library appends
+		// each label's <div> to the renderer's container the first time
+		// it sees the CSS2DObject in the scene, but never removes it
+		// when the parent three.js object leaves. Every cluster
+		// expand/collapse builds a fresh Group + fresh CSS2DObject +
+		// fresh <div>, leaving the previous <div> orphaned at its last
+		// projected position — that's the "stuck + duplicated labels"
+		// symptom. Sweep the renderer's container for divs whose
+		// `data-node-id` is no longer in graphData and detach them.
+		const cssRenderer = css2dRendererRef.current;
+		if (cssRenderer) {
+			const dom = cssRenderer.domElement;
+			const orphans: HTMLElement[] = [];
+			for (const el of dom.querySelectorAll<HTMLElement>(
+				"[data-node-id]",
+			)) {
+				const id = el.dataset.nodeId;
+				if (!id || !m.has(id)) orphans.push(el);
+			}
+			for (const el of orphans) el.remove();
+		}
 		// Re-apply tier dim + label LOD to newly-built nodes after the
 		// library has had a frame to call buildNodeObject on them. The
 		// current camera position is fine — we just need the visuals
