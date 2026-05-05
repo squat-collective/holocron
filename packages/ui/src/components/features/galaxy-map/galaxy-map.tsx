@@ -393,47 +393,6 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	// Press Enter while a node is hovered (or while a search hit is
 	// keyboard-selected) to toggle its lock.
 	const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
-	// Force-expand a cluster — used when a focus event lands on a node
-	// inside a collapsed cluster, so the user actually sees what they
-	// just locked / searched for. The sticky window keeps the budget
-	// from immediately auto-collapsing it on the next camera nudge.
-	const ensureClusterExpanded = useCallback(
-		(clusterId: string | null | undefined) => {
-			if (!clusterId) return;
-			setExpandedClusterIds((prev) => {
-				if (prev.has(clusterId)) return prev;
-				const next = new Set(prev);
-				next.add(clusterId);
-				lastClusterChangeRef.current.set(
-					clusterId,
-					performance.now(),
-				);
-				return next;
-			});
-		},
-		[],
-	);
-
-	// Batch version — single setState for the whole set, no churn if
-	// every cluster is already expanded. Used by focus mode to open
-	// the seeds' clusters and their 1-hop neighbours' clusters in one
-	// shot, rather than firing N setStates.
-	const ensureClustersExpanded = useCallback(
-		(clusterIds: Iterable<string>) => {
-			setExpandedClusterIds((prev) => {
-				let next: Set<string> | null = null;
-				const t = performance.now();
-				for (const id of clusterIds) {
-					if (prev.has(id)) continue;
-					if (!next) next = new Set(prev);
-					next.add(id);
-					lastClusterChangeRef.current.set(id, t);
-				}
-				return next ?? prev;
-			});
-		},
-		[],
-	);
 	const toggleLock = useCallback(
 		(id: string) => {
 			setLockedIds((s) => {
@@ -442,12 +401,11 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				else next.add(id);
 				return next;
 			});
-			const node = nodesByIdRef.current.get(id);
-			if (node && !isBubble(node)) {
-				ensureClusterExpanded(node.cluster_id);
-			}
+			// No cluster expansion here: the surfacing effect makes
+			// the locked node visible by itself, without exposing the
+			// rest of its cluster. Click the bubble to expand fully.
 		},
-		[ensureClusterExpanded],
+		[],
 	);
 	const unlock = useCallback((id: string) => {
 		setLockedIds((s) => {
@@ -573,26 +531,35 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		return out;
 	}, [seedIds, adjacency]);
 
-	// Keep the cluster system in lock-step with focus: when the user
-	// locks / hovers / searches a node, expand the clusters of every
-	// node in the focus set (seed + 1-hop) so the context is actually
-	// visible, even for neighbours hiding behind a still-collapsed
-	// bubble. Without this the focus mode showed an island of one
-	// node and a bunch of empty space where its neighbourhood lived.
-	//
-	// The expansions don't pin — once focus drops and the camera
-	// settles, the budget pass can collapse them back if the zoom
-	// gate fails. The 500ms sticky window prevents thrash if the user
-	// is just skimming hover targets.
+	// Surface the focus set independently of cluster state: a surfaced
+	// node is rendered in the scene even when its cluster is still
+	// collapsed. That way locking / searching a node shows just *that*
+	// node + its 1-hop neighbours, instead of forcing the whole cluster
+	// (including dozens of unrelated members) to expand. The cluster's
+	// bubble keeps representing the rest; the surfaced node sits next
+	// to / inside the bubble in 3D space.
+	const [surfacedNodeIds, setSurfacedNodeIds] = useState<Set<string>>(
+		() => new Set(),
+	);
 	useEffect(() => {
-		if (!focusSet || focusSet.size === 0) return;
-		const ids = new Set<string>();
-		for (const nodeId of focusSet) {
-			const cid = nodeClusterMap.get(nodeId);
-			if (cid) ids.add(cid);
+		if (!focusSet || focusSet.size === 0) {
+			setSurfacedNodeIds((prev) => (prev.size === 0 ? prev : new Set()));
+			return;
 		}
-		if (ids.size > 0) ensureClustersExpanded(ids);
-	}, [focusSet, nodeClusterMap, ensureClustersExpanded]);
+		setSurfacedNodeIds((prev) => {
+			if (prev.size === focusSet.size) {
+				let same = true;
+				for (const id of focusSet) {
+					if (!prev.has(id)) {
+						same = false;
+						break;
+					}
+				}
+				if (same) return prev;
+			}
+			return new Set(focusSet);
+		});
+	}, [focusSet]);
 
 	// Per-frame visual update — runs on focus changes AND on every
 	// camera move (via the OrbitControls `change` listener wired below).
@@ -769,15 +736,22 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			return { nodes: [] as FgAnyNode[], links: [] as FgLink[] };
 		}
 
-		// Decide which member nodes are visible (member of an expanded
-		// cluster, OR loose with no cluster). Loose nodes are always in.
+		// Decide which member nodes are visible:
+		//   - loose nodes (no cluster) always
+		//   - members of an expanded cluster
+		//   - individually surfaced nodes (focus / search), even when
+		//     their cluster is still collapsed; the bubble continues
+		//     to represent the rest of the cluster
 		const visibleMemberIds = new Set<string>();
 		for (const n of data.nodes) {
 			if (!n.cluster_id) {
 				visibleMemberIds.add(n.id);
 				continue;
 			}
-			if (expandedClusterIds.has(n.cluster_id)) {
+			if (
+				expandedClusterIds.has(n.cluster_id) ||
+				surfacedNodeIds.has(n.id)
+			) {
 				visibleMemberIds.add(n.id);
 			}
 		}
@@ -847,7 +821,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		}
 
 		return { nodes: [...realNodes, ...bubbles] as FgAnyNode[], links };
-	}, [data, palette, expandedClusterIds]);
+	}, [data, palette, expandedClusterIds, surfacedNodeIds]);
 
 	// Index by id for O(1) lookup from the delegated label-click handler
 	// below — clicking a label gives us the node id from `data-node-id`,
@@ -1078,15 +1052,18 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				const ns = adjacency.get(id);
 				if (ns) for (const n of ns) ids.add(n);
 			}
-			if (ids.size === 0) return;
+			if (ids.size === 0 || !data) return;
 
-			// Centroid + bounding radius of the cluster.
+			// Centroid + bounding radius. We pull positions from the
+			// *full* dataset, not from currently-visible graphData —
+			// surfaced search hits and their 1-hop neighbours haven't
+			// always landed in graphData yet at fly-to time.
 			let cx = 0;
 			let cy = 0;
 			let cz = 0;
 			let count = 0;
-			for (const n of graphData.nodes) {
-				if (!ids.has(n.id) || isBubble(n)) continue;
+			for (const n of data.nodes) {
+				if (!ids.has(n.id)) continue;
 				cx += n.x;
 				cy += n.y;
 				cz += n.z;
@@ -1097,8 +1074,8 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 			cy /= count;
 			cz /= count;
 			let radius = 60; // floor — keeps a single isolated hit from snapping in too close
-			for (const n of graphData.nodes) {
-				if (!ids.has(n.id) || isBubble(n)) continue;
+			for (const n of data.nodes) {
+				if (!ids.has(n.id)) continue;
 				const r = Math.hypot(n.x - cx, n.y - cy, n.z - cz);
 				if (r > radius) radius = r;
 			}
@@ -1128,7 +1105,7 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				900,
 			);
 		},
-		[adjacency, graphData.nodes],
+		[adjacency, data],
 	);
 
 
@@ -1264,21 +1241,33 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 
 	// Active hit (parent-driven) → on-map focus + camera fly. Schema
 	// hits (containers / fields) collapse onto their parent asset.
+	//
+	// We resolve the node from the *full* dataset, not from the
+	// currently-rendered graphData — a search hit may land on a node
+	// hiding behind a still-collapsed bubble. The surfacing effect
+	// will then make just that node + its 1-hop neighbours appear,
+	// without forcing the rest of their clusters open.
 	useEffect(() => {
 		if (!activeHit) {
 			setKeyboardFocusNode(null);
 			return;
 		}
 		const id = nodeIdForHit(activeHit);
-		const node = graphData.nodes.find((n) => n.id === id);
-		if (!node || isBubble(node)) return;
+		const baseNode = data?.nodes.find((n) => n.id === id);
+		if (!baseNode) return;
+		const cached = cachedNodesRef.current.get(id);
+		const node: FgNode =
+			cached ?? {
+				...baseNode,
+				fx: baseNode.x,
+				fy: baseNode.y,
+				fz: baseNode.z,
+				val: baseNode.size,
+				color: colorFor(baseNode, palette),
+			};
 		setKeyboardFocusNode(node);
-		// Open the focused node's cluster if it's currently collapsed —
-		// otherwise the camera flies to a hidden node and the user sees
-		// nothing at the destination.
-		ensureClusterExpanded(node.cluster_id);
 		flyToSeeds([id], 1.4);
-	}, [activeHit, graphData.nodes, flyToSeeds, ensureClusterExpanded]);
+	}, [activeHit, data, palette, flyToSeeds]);
 
 	// Imperative API the parent uses to drive locks + recenters from the
 	// shared search bar (Shift+Enter forwards here when in map mode).
