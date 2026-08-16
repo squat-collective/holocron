@@ -1,10 +1,5 @@
 "use client";
 
-import type {
-	GraphCluster,
-	GraphEdge,
-	GraphNode,
-} from "@squat-collective/holocron-ts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Compass, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -17,13 +12,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import ForceGraph3D from "react-force-graph-3d";
-import * as THREE from "three";
-import {
-	CSS2DObject,
-	CSS2DRenderer,
-} from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { GalaxySpinner } from "@/components/ui/galaxy-spinner";
 import type { CatalogHit } from "@/hooks/use-catalog-search";
 import { useGraphMap } from "@/hooks/use-graph-map";
@@ -34,221 +22,34 @@ import {
 	RuleIcon,
 } from "@/lib/icons";
 import {
-	computeExpansion,
-	indexByCluster,
-} from "./cluster-budget";
-import {
-	computeLabelOpacity,
-	FOCUS_HALO_ALPHA,
-	FOCUS_MESH_ALPHA,
-	focusTierFor,
-} from "./lod";
+	type FgNode,
+	GalaxyScene,
+	hrefFor,
+	isBubble,
+} from "./galaxy-scene";
+import { MapPerfOverlay } from "./map-perf-overlay";
+
+const SHOW_PERF_OVERLAY = process.env.NODE_ENV === "development";
 
 /**
- * GalaxyMap — the 3D "Google Maps for data" view.
+ * GalaxyMap — React shell over the imperative `GalaxyScene` engine.
  *
- * WebGL scene via react-force-graph-3d (three.js). Every node carries
- * its `(x, y, z)` from the server, so the force simulation stays frozen
- * and layout is deterministic across sessions / shareable by URL.
+ * The component does only React-shaped work:
+ *   - Mounts a single `GalaxyScene` and disposes it on unmount.
+ *   - Holds React state for hover / lock / keyboard-focus / active hit
+ *     so the overlays (info panel, hover card, locked chips) can
+ *     re-render off them.
+ *   - Pushes those state changes into the engine via setters
+ *     (`setData`, `setFocus`, `flyTo`, `recenter`).
+ *   - Subscribes to engine events (`hover`, `click`) to keep the
+ *     React state honest and to route real-node clicks.
  *
- * Passive discovery is built into the visual language:
- *   - Hue encodes entity kind (dataset / report / system / person / team / rule)
- *   - Size + glow encodes degree (data hubs literally shine brighter)
- *   - Tier-0 nodes (systems + teams) sit on the galactic plane; tier-1
- *     nodes float in a thin shell around it.
- *
- * Active navigation is through the floating search bar:
- *   - Type a query → matching nodes go bright, non-matches dim
- *   - Enter → camera flies to the best match
+ * Everything 3D — three.js, the WebGL canvas, the CSS2D label layer,
+ * the budget pass, the LOD pipeline — lives in `galaxy-scene.tsx`.
+ * If you're looking for a piece of the renderer, look there.
  */
 
-// Pulled from the app's CSS custom properties so the 3D palette matches
-// the chips and lineage edges everywhere else.
-//
-// The app's tokens live in `oklch()` (Tailwind v4 default). Two layers
-// have to convert before THREE.Color sees something it understands:
-//   1. CSS engine resolves the var → some color string (might be
-//      `rgb(...)`, `rgba(...)`, or even `color(srgb ...)` in wide-gamut
-//      browsers — THREE chokes on the last form).
-//   2. We paint that string into a 1×1 canvas and read the pixel back.
-//      Whatever the browser supports for canvas paint, the pixel data is
-//      always 8-bit sRGB — so we hand THREE a normalized `rgb(r, g, b)`.
-function readCssColor(cssVar: string, fallback: string): string {
-	if (typeof window === "undefined") return fallback;
-	const probe = document.createElement("span");
-	probe.style.position = "absolute";
-	probe.style.visibility = "hidden";
-	probe.style.color = `var(${cssVar})`;
-	document.body.appendChild(probe);
-	const computed = getComputedStyle(probe).color;
-	document.body.removeChild(probe);
-	if (!computed || computed === "rgba(0, 0, 0, 0)") return fallback;
-
-	const canvas = document.createElement("canvas");
-	canvas.width = 1;
-	canvas.height = 1;
-	const ctx = canvas.getContext("2d");
-	if (!ctx) return fallback;
-	ctx.clearRect(0, 0, 1, 1);
-	ctx.fillStyle = computed;
-	ctx.fillRect(0, 0, 1, 1);
-	const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
-	if (a === 0) return fallback;
-	return `rgb(${r}, ${g}, ${b})`;
-}
-
-interface Palette {
-	dataset: string;
-	report: string;
-	process: string;
-	system: string;
-	person: string;
-	group: string;
-	rule_info: string;
-	rule_warning: string;
-	rule_critical: string;
-	rel_owns: string;
-	rel_uses: string;
-	rel_feeds: string;
-	rel_contains: string;
-	rel_member_of: string;
-	rel_applies_to: string;
-}
-
-function usePalette(): Palette {
-	// Resolved synchronously on first client render. The component is
-	// dynamic-imported with `ssr: false` so `window` is always defined
-	// here — but we still pass safe fallbacks just in case the probe
-	// trick fails on a node before document.body is settled.
-	//
-	// The library memoizes node 3D objects by `id`, so if the palette
-	// updates *after* first render the existing meshes keep their stale
-	// (fallback) color. Resolving in useState's initializer means the
-	// first render already has the right colors and we never have to
-	// rebuild the scene.
-	const [palette] = useState<Palette>(() => ({
-		dataset: readCssColor("--asset-dataset", "#4fc3f7"),
-		report: readCssColor("--asset-report", "#ffb74d"),
-		process: readCssColor("--asset-process", "#ba68c8"),
-		system: readCssColor("--asset-system", "#81c784"),
-		person: readCssColor("--actor-person", "#64b5f6"),
-		group: readCssColor("--actor-group", "#e57373"),
-		rule_info: readCssColor("--severity-info", "#90a4ae"),
-		rule_warning: readCssColor("--severity-warning", "#ffb74d"),
-		rule_critical: readCssColor("--severity-critical", "#e57373"),
-		rel_owns: readCssColor("--relation-owns", "#5dac76"),
-		rel_uses: readCssColor("--relation-uses", "#69b6c4"),
-		rel_feeds: readCssColor("--relation-feeds", "#5b9bd5"),
-		rel_contains: readCssColor("--relation-contains", "#c75bd1"),
-		rel_member_of: readCssColor("--relation-member-of", "#5fbab2"),
-		rel_applies_to: readCssColor("--relation-applies-to", "#d65bbb"),
-	}));
-	return palette;
-}
-
-function relationColor(type: string, palette: Palette): string {
-	switch (type) {
-		case "owns":
-			return palette.rel_owns;
-		case "uses":
-			return palette.rel_uses;
-		case "feeds":
-			return palette.rel_feeds;
-		case "contains":
-			return palette.rel_contains;
-		case "member_of":
-			return palette.rel_member_of;
-		case "applies_to":
-			return palette.rel_applies_to;
-		default:
-			return "rgb(180, 180, 220)";
-	}
-}
-
-/**
- * Convert a `rgb(r, g, b)` string to `rgba(r, g, b, a)` so we can keep
- * the resolved CSS palette while modulating opacity per render state
- * (hovered / matched / dimmed). Falls through unmodified for any input
- * that isn't the canonical 3-channel form.
- */
-function withAlpha(rgb: string, alpha: number): string {
-	const m = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/.exec(rgb);
-	if (!m) return rgb;
-	return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`;
-}
-
-function colorFor(node: GraphNode, palette: Palette): string {
-	if (node.kind === "asset") {
-		switch (node.subtype) {
-			case "dataset":
-				return palette.dataset;
-			case "report":
-				return palette.report;
-			case "process":
-				return palette.process;
-			case "system":
-				return palette.system;
-		}
-	}
-	if (node.kind === "actor") {
-		return node.subtype === "group" ? palette.group : palette.person;
-	}
-	if (node.kind === "rule") {
-		switch (node.subtype) {
-			case "critical":
-				return palette.rule_critical;
-			case "warning":
-				return palette.rule_warning;
-			default:
-				return palette.rule_info;
-		}
-	}
-	return "#888";
-}
-
-/**
- * Lucide icon → SVG string. Rendered once per (kind, subtype) at first
- * use and cached, so subsequent labels are a Map lookup.
- */
-const iconCache = new Map<string, string>();
-function getIconSvg(kind: string, subtype: string): string {
-	const key = `${kind}:${subtype}`;
-	const cached = iconCache.get(key);
-	if (cached) return cached;
-	let Icon: LucideIcon;
-	if (kind === "asset") Icon = getAssetTypeIcon(subtype);
-	else if (kind === "actor") Icon = getActorTypeIcon(subtype);
-	else Icon = RuleIcon;
-	const svg = renderToStaticMarkup(<Icon size={11} strokeWidth={2.4} />);
-	iconCache.set(key, svg);
-	return svg;
-}
-
-function escapeHtml(s: string): string {
-	return s
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;");
-}
-
-
-function hrefFor(node: GraphNode): string {
-	switch (node.kind) {
-		case "asset":
-			return `/assets/${node.id}`;
-		case "actor":
-			return `/actors/${node.id}`;
-		case "rule":
-			return `/rules/${node.id}`;
-	}
-}
-
-/**
- * Map a search hit back to the graph node we should focus on. Schema
- * hits (containers / fields) don't have their own galaxy presence —
- * they collapse onto their parent asset.
- */
+/** Map a search hit back to the graph node we should focus on. */
 function nodeIdForHit(hit: CatalogHit): string {
 	switch (hit.kind) {
 		case "asset":
@@ -259,96 +60,6 @@ function nodeIdForHit(hit: CatalogHit): string {
 		case "field":
 			return hit.asset_uid;
 	}
-}
-
-/**
- * Shape we hand to react-force-graph-3d. Extends the API `GraphNode`
- * with the `fx/fy/fz` fixed-position properties + the mutable visual
- * attributes the renderer tracks (color, visibility scalars).
- */
-interface FgNode extends GraphNode {
-	fx: number;
-	fy: number;
-	fz: number;
-	val: number;
-	color: string;
-	_dimmed?: boolean;
-}
-
-/**
- * Synthetic graph node representing a collapsed cluster — drawn as a
- * single big bubble that aggregates all the cluster's members under
- * one click target. Lives alongside real `FgNode`s in the same
- * graphData; visibility callbacks decide which half is on screen.
- */
-interface FgClusterBubble {
-	id: string; // `__cluster__${cluster.id}` to avoid colliding with real ids
-	fx: number;
-	fy: number;
-	fz: number;
-	val: number;
-	color: string;
-	_bubble: true;
-	_clusterId: string;
-	_clusterLabel: string;
-	_clusterKind: GraphCluster["kind"];
-	_memberCount: number;
-	/**
-	 * Sum of underlying member degrees — used by the label-LOD pass as
-	 * the "node degree" input so heavyweight clusters keep their label
-	 * visible further out than tiny ones.
-	 */
-	_degree: number;
-}
-type FgAnyNode = FgNode | FgClusterBubble;
-
-function isBubble(n: FgAnyNode): n is FgClusterBubble {
-	return (n as FgClusterBubble)._bubble === true;
-}
-
-interface FgLink {
-	source: string;
-	target: string;
-	type: string;
-	color?: string;
-	/**
-	 * Aggregated edges — one bubble↔bubble (or bubble↔loose-node) line
-	 * standing in for several underlying member-to-member relations.
-	 * `weight` is the count being aggregated; `type` is "aggregated".
-	 * Renderer styles them as neutral grey with width by weight, so
-	 * the user sees structure-between-clusters without the edge soup.
-	 */
-	weight?: number;
-}
-
-/**
- * Untyped façade over the react-force-graph-3d ref. The library doesn't
- * export TypeScript declarations for its imperative API, so we describe
- * just the methods we actually call.
- */
-interface FgHandle {
-	cameraPosition: (
-		p: { x: number; y: number; z: number },
-		look?: { x: number; y: number; z: number },
-		ms?: number,
-	) => void;
-	zoomToFit: (
-		ms?: number,
-		padding?: number,
-		nodeFilter?: (n: { id: string }) => boolean,
-	) => void;
-	camera: () => THREE.Camera;
-	controls: () => {
-		zoomSpeed?: number;
-		rotateSpeed?: number;
-		panSpeed?: number;
-		enableDamping?: boolean;
-		dampingFactor?: number;
-		target?: THREE.Vector3;
-		update?: () => void;
-		mouseButtons?: { LEFT?: number; MIDDLE?: number; RIGHT?: number };
-		zoomToCursor?: boolean;
-	};
 }
 
 /**
@@ -378,1232 +89,195 @@ export interface GalaxyMapProps {
 
 export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 	function GalaxyMap({ activeHit = null }, ref) {
-	const router = useRouter();
-	const containerRef = useRef<HTMLDivElement | null>(null);
-	const { data, isLoading } = useGraphMap(1);
-	const palette = usePalette();
-	const fgRef = useRef<FgHandle | null>(null);
+		const router = useRouter();
+		const containerRef = useRef<HTMLDivElement | null>(null);
+		// The scene mounts the WebGL canvas + the CSS2D label layer
+		// directly into a child div the library owns end-to-end. The
+		// outer `containerRef` div hosts React-managed overlays
+		// (spinner, nebulae, hover card, locked chips, legend, etc.)
+		// — keeping those in their own React subtree avoids React's
+		// DOM-deletion paths colliding with the library's canvas
+		// mutations on commit.
+		const sceneMountRef = useRef<HTMLDivElement | null>(null);
+		const sceneRef = useRef<GalaxyScene | null>(null);
+		const { data, isLoading } = useGraphMap(1);
 
-	// Hovered node — drives a custom React tooltip instead of the
-	// library's built-in HTML one, which appears at a fixed offset from
-	// the node and feels detached from the cursor.
-	//
-	// The cursor position is intentionally NOT React state — `HoverCard`
-	// listens to mousemove on `containerRef` directly and writes the
-	// position to its own DOM via a ref. Lifting cursor state onto this
-	// component re-rendered the whole `<ForceGraph3D>` tree (and re-ran
-	// every link callback) on every pixel of mouse motion — the biggest
-	// single cause of the lag in #25.
-	const [hoveredNode, setHoveredNode] = useState<FgNode | null>(null);
+		// Hovered node — drives the info panel + cursor card. Updated
+		// when the engine emits a 'hover' event (real-node hits only;
+		// bubbles get a separate hover affordance).
+		const [hoveredNode, setHoveredNode] = useState<FgNode | null>(null);
 
-	// Keyboard-driven focus — arrow-selected hit drives the same edge
-	// glow + camera fly the mouse hover does. Mouse hover wins so the
-	// cursor always feels in control when it's actually moving.
-	const [keyboardFocusNode, setKeyboardFocusNode] = useState<FgNode | null>(null);
+		// Keyboard-driven focus — arrow-selected hit drives the same
+		// edge glow + camera fly the mouse hover does. Mouse hover wins
+		// so the cursor always feels in control when it's actually
+		// moving.
+		const [keyboardFocusNode, setKeyboardFocusNode] =
+			useState<FgNode | null>(null);
 
-	// Locked nodes — pinned focus seeds. Hover + keyboard focus still
-	// add transient seeds on top, so the focus set is always the union
-	// `{locked ∪ hovered ∪ keyboardFocus}` plus their 1-hop neighbours.
-	// Press Enter while a node is hovered (or while a search hit is
-	// keyboard-selected) to toggle its lock.
-	const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
-	const toggleLock = useCallback(
-		(id: string) => {
+		// Locked nodes — pinned focus seeds. Hover + keyboard focus
+		// still add transient seeds on top, so the focus set is always
+		// `{locked ∪ hovered ∪ keyboardFocus}`. Press Enter while a
+		// node is hovered to toggle its lock.
+		const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
+
+		const toggleLock = useCallback((id: string) => {
 			setLockedIds((s) => {
 				const next = new Set(s);
 				if (next.has(id)) next.delete(id);
 				else next.add(id);
 				return next;
 			});
-			// No cluster expansion here: the surfacing effect makes
-			// the locked node visible by itself, without exposing the
-			// rest of its cluster. Click the bubble to expand fully.
-		},
-		[],
-	);
-	const unlock = useCallback((id: string) => {
-		setLockedIds((s) => {
-			if (!s.has(id)) return s;
-			const next = new Set(s);
-			next.delete(id);
-			return next;
-		});
-	}, []);
-	const clearLocks = useCallback(() => setLockedIds(new Set()), []);
-
-	// CSS2DRenderer mounts a separate DOM layer over the WebGL canvas so
-	// every label is a real <div>. Keep it in a ref + a stable
-	// extraRenderers array so ForceGraph3D doesn't re-init the scene on
-	// every render.
-	const css2dRendererRef = useRef<CSS2DRenderer | null>(null);
-	const extraRenderers = useMemo(() => {
-		if (typeof window === "undefined") return [];
-		const r = new CSS2DRenderer();
-		r.domElement.style.position = "absolute";
-		r.domElement.style.top = "0";
-		r.domElement.style.left = "0";
-		r.domElement.style.width = "100%";
-		r.domElement.style.height = "100%";
-		r.domElement.style.pointerEvents = "none";
-		css2dRendererRef.current = r;
-		return [r];
-		// Intentionally empty deps — the renderer must be a singleton.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	// Per-node visual registry — populated at mesh build time. The
-	// search-dim + focus-collapse effects mutate the registered group
-	// `visible` flag + material opacities + label classes instead of
-	// rebuilding the whole node object — that's how we keep
-	// `buildNodeObject` deps empty and avoid duplicate labels.
-	//
-	// `degree` is mirrored from the node so the per-frame label LOD
-	// path doesn't have to chase the FgNode object — labels are visited
-	// every camera move and avoiding a Map lookup per frame matters.
-	const labelRegistryRef = useRef<
-		Map<
-			string,
-			{
-				obj: CSS2DObject;
-				group: THREE.Group;
-				// Bubbles don't have a solid icosahedron core — only a
-				// halo. Optional so applyVisuals can null-check.
-				coreMat: THREE.MeshBasicMaterial | null;
-				haloMat: THREE.SpriteMaterial | null;
-				degree: number;
-			}
-		>
-	>(new Map());
-	// Single source of truth for "which DOM element is the current
-	// label for node id X". Both real-node and bubble label divs land
-	// here. The DOM sweep below uses this to detach anything in the
-	// CSS2DRenderer's container that isn't the *current* registered
-	// element — catches plain orphans (id no longer in graphData) AND
-	// same-id duplicates if the library happens to rebuild a node's
-	// threeObject without the old CSS2DObject element going through
-	// CSS2DRenderer's normal lifecycle.
-	const labelDomRef = useRef<Map<string, HTMLElement>>(new Map());
-	// Tracks every three.js Group we hand back from buildNodeObject —
-	// real nodes and bubbles alike. When graphData mutates the library
-	// disposes affected nodes' resources, but it doesn't reliably
-	// remove the Group from its scene parent. CSS2DRenderer then keeps
-	// finding the orphan Group's CSS2DObject every frame and
-	// re-appending its label element to the DOM, undoing any sweep we
-	// run from React-side. The graphData effect below uses this map
-	// to actively detach orphan groups from the scene tree.
-	const groupsByIdRef = useRef<Map<string, THREE.Group>>(new Map());
-	useEffect(() => {
-		labelRegistryRef.current = new Map();
-		labelDomRef.current = new Map();
-		groupsByIdRef.current = new Map();
-		cachedNodesRef.current = new Map();
-		cachedBubblesRef.current = new Map();
-	}, [data]);
-
-	// Adjacency index — used both for focus-mode label collapse and for
-	// the "best view" camera framing (zoom to {focused} ∪ neighbours).
-	const adjacency = useMemo(() => {
-		const m = new Map<string, Set<string>>();
-		if (!data) return m;
-		for (const e of data.edges) {
-			if (!m.has(e.source)) m.set(e.source, new Set());
-			if (!m.has(e.target)) m.set(e.target, new Set());
-			m.get(e.source)?.add(e.target);
-			m.get(e.target)?.add(e.source);
-		}
-		return m;
-	}, [data]);
-
-	// Look up a node's cluster from the *full* dataset, including
-	// nodes currently hidden behind a collapsed bubble. Focus mode
-	// uses this to expand the clusters of 1-hop neighbours of a
-	// focused seed even when those neighbours aren't on screen yet.
-	const nodeClusterMap = useMemo(() => {
-		const m = new Map<string, string | null | undefined>();
-		if (data) for (const n of data.nodes) m.set(n.id, n.cluster_id);
-		return m;
-	}, [data]);
-
-	// Seed set — strict seeds only (no neighbours). Used for the focus
-	// tier classification: seed (full bright) vs neighbour (1-hop dim)
-	// vs other (background). Lockes + hover + keyboard focus all count.
-	const seedIds = useMemo<Set<string> | null>(() => {
-		const s = new Set<string>(lockedIds);
-		if (hoveredNode) s.add(hoveredNode.id);
-		if (keyboardFocusNode) s.add(keyboardFocusNode.id);
-		return s.size === 0 ? null : s;
-	}, [lockedIds, hoveredNode, keyboardFocusNode]);
-
-	// Focus set — seeds ∪ 1-hop neighbours. Used for the camera fly
-	// framing and the per-link styling. Mesh / label dimming uses the
-	// finer `focusTierFor` lookup directly.
-	const focusSet = useMemo<Set<string> | null>(() => {
-		if (!seedIds) return null;
-		const out = new Set<string>(seedIds);
-		for (const id of seedIds) {
-			const ns = adjacency.get(id);
-			if (ns) for (const n of ns) out.add(n);
-		}
-		return out;
-	}, [seedIds, adjacency]);
-
-	// Surface seeds only — not their 1-hop neighbours. At zoom-out a
-	// hub seed has dozens of neighbours; surfacing them all defeats
-	// the cluster-bubble architecture view (you'd see the bubbles
-	// erupt into individual member fountains the moment the cursor
-	// crosses a node). Neighbours still get the "neighbour" focus
-	// tier dim if they're already visible — through expanded
-	// clusters, loose nodes, or aggregated edges from the seed's
-	// representative — but they don't get auto-broken-out of their
-	// bubbles. The user can still expand a cluster manually if they
-	// want to dig in.
-	const [surfacedNodeIds, setSurfacedNodeIds] = useState<Set<string>>(
-		() => new Set(),
-	);
-	useEffect(() => {
-		if (!seedIds || seedIds.size === 0) {
-			setSurfacedNodeIds((prev) => (prev.size === 0 ? prev : new Set()));
-			return;
-		}
-		setSurfacedNodeIds((prev) => {
-			if (prev.size === seedIds.size) {
-				let same = true;
-				for (const id of seedIds) {
-					if (!prev.has(id)) {
-						same = false;
-						break;
-					}
-				}
-				if (same) return prev;
-			}
-			return new Set(seedIds);
-		});
-	}, [seedIds]);
-
-	// Per-frame visual update — runs on focus changes AND on every
-	// camera move (via the OrbitControls `change` listener wired below).
-	//
-	// Labels: opacity = f(camera_distance, node_degree, focus_tier).
-	// Hubs hold their label longer as the camera zooms back; leaves
-	// fade first. Inside a focus, off-tier nodes dim hard (~0.12) so
-	// the seed-cluster reads as the sole bright part of the scene.
-	//
-	// Mesh + halo: focus-tier dim only (no distance falloff). Nodes
-	// are the spatial anchor — they need to stay visible at any zoom.
-	const applyVisualsRef = useRef<(() => void) | null>(null);
-	useEffect(() => {
-		const fg = fgRef.current;
-		if (!fg) return;
-		const cam = fg.camera();
-		const tmp = new THREE.Vector3();
-		const apply = () => {
-			labelRegistryRef.current.forEach((entry, id) => {
-				const tier = focusTierFor(id, seedIds, adjacency);
-				if (entry.coreMat) entry.coreMat.opacity = FOCUS_MESH_ALPHA[tier];
-				if (entry.haloMat) entry.haloMat.opacity = FOCUS_HALO_ALPHA[tier];
-				entry.group.getWorldPosition(tmp);
-				const distance = cam.position.distanceTo(tmp);
-				const opacity = computeLabelOpacity({
-					distance,
-					degree: entry.degree,
-					focusTier: tier,
-				});
-				const el = entry.obj.element as HTMLElement;
-				el.style.opacity = opacity.toFixed(3);
-				// Faint labels (off-focus background, far-zoom leaves) are
-				// not click targets — at opacity < 0.3 the user can barely
-				// see them, and accidental navigation feels random. Keeps
-				// the label-as-hit-area behaviour scoped to labels the user
-				// can actually read.
-				el.style.pointerEvents = opacity > 0.3 ? "auto" : "none";
+		}, []);
+		const unlock = useCallback((id: string) => {
+			setLockedIds((s) => {
+				if (!s.has(id)) return s;
+				const next = new Set(s);
+				next.delete(id);
+				return next;
 			});
-		};
-		applyVisualsRef.current = apply;
-		apply();
-		// The registry fills as `react-force-graph-3d` lazily builds each
-		// node's three.js object — so the synchronous apply above can hit
-		// an empty (or partial) registry on first data load. Schedule
-		// follow-up runs to catch nodes that mount after the effect
-		// fires. (For expansion-driven graphData changes, the
-		// nodesByIdRef effect below schedules its own rAF.)
-		const f1 = requestAnimationFrame(apply);
-		const t = setTimeout(apply, 200);
-		return () => {
-			cancelAnimationFrame(f1);
-			clearTimeout(t);
-			if (applyVisualsRef.current === apply) applyVisualsRef.current = null;
-		};
-	}, [seedIds, adjacency, data]);
+		}, []);
+		const clearLocks = useCallback(() => setLockedIds(new Set()), []);
 
-	// Subscribe to camera changes — OrbitControls fires `change` on
-	// every drag/scroll/programmatic update, which is exactly when our
-	// distance-based label opacities need to recompute. Cheap: one
-	// pass through the registry per camera nudge.
-	useEffect(() => {
-		const fg = fgRef.current;
-		if (!fg) return;
-		const ctrl = fg.controls();
-		if (!ctrl) return;
-		const handler = () => applyVisualsRef.current?.();
-		// OrbitControls is an EventDispatcher in three.js
-		const target = ctrl as unknown as {
-			addEventListener?: (e: string, cb: () => void) => void;
-			removeEventListener?: (e: string, cb: () => void) => void;
-		};
-		target.addEventListener?.("change", handler);
-		return () => {
-			target.removeEventListener?.("change", handler);
-		};
-	}, [data]);
+		// Mount the engine exactly once per component instance. Strict
+		// Mode runs effects twice in dev — `unmount()` is idempotent
+		// and `mount()` throws if double-mounted, so the second pass
+		// simply gets a fresh instance.
+		useEffect(() => {
+			const mount = sceneMountRef.current;
+			if (!mount) return;
+			const scene = new GalaxyScene();
+			scene.mount(mount);
+			sceneRef.current = scene;
+			// Push current data immediately if it's already in cache —
+			// the data effect won't re-fire on a StrictMode remount
+			// (its dep is unchanged), so without this the library would
+			// be left empty after the second mount.
+			if (dataRef.current) scene.setData(dataRef.current);
 
-	// Delegated click + hover on labels — every label exposes its
-	// `data-node-id`, so a single listener on the container covers
-	// every node without one event registration per label. Labels
-	// with `pointer-events: none` (faint / off-focus, applied by the
-	// LOD pass) won't even fire the events, so background nav is safe.
-	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
-		const closestLabel = (e: Event): HTMLElement | null => {
-			const target = e.target as HTMLElement | null;
-			return target?.closest(".galaxy-label") as HTMLElement | null;
-		};
-		const onClick = (e: MouseEvent) => {
-			const label = closestLabel(e);
-			if (!label?.dataset.nodeId) return;
-			const node = nodesByIdRef.current.get(label.dataset.nodeId);
+			const offHover = scene.on("hover", (n) => {
+				setHoveredNode(n && !isBubble(n) ? (n as FgNode) : null);
+			});
+			const offClick = scene.on("click", (n) => {
+				if (isBubble(n)) return;
+				router.push(hrefFor(n));
+			});
+
+			return () => {
+				offHover();
+				offClick();
+				scene.unmount();
+				sceneRef.current = null;
+			};
+		}, [router]);
+
+		// Mirror of `data` readable from the mount effect's closure
+		// without making `data` a dependency. Lets a StrictMode-driven
+		// remount sync the freshly-mounted scene to whatever the cache
+		// already has.
+		const dataRef = useRef(data);
+		dataRef.current = data;
+
+		// Push new data into the engine whenever the query resolves.
+		useEffect(() => {
+			if (!data) return;
+			sceneRef.current?.setData(data);
+		}, [data]);
+
+		// Compose the seed set from hover + lock + keyboard focus and
+		// push to the engine. The engine derives the focus set + tier
+		// dim + label LOD off this single setter.
+		const seedIds = useMemo<Set<string>>(() => {
+			const s = new Set<string>(lockedIds);
+			if (hoveredNode) s.add(hoveredNode.id);
+			if (keyboardFocusNode) s.add(keyboardFocusNode.id);
+			return s;
+		}, [lockedIds, hoveredNode, keyboardFocusNode]);
+
+		useEffect(() => {
+			sceneRef.current?.setFocus(seedIds);
+		}, [seedIds]);
+
+		// Active-hit (parent-driven search) → resolve a node + fly the
+		// camera. The engine `getNode` helper synthesises a full FgNode
+		// (with palette colour) even for off-screen hits so the panel
+		// has everything it needs to render.
+		useEffect(() => {
+			const scene = sceneRef.current;
+			if (!activeHit || !scene || !data) {
+				setKeyboardFocusNode(null);
+				return;
+			}
+			const id = nodeIdForHit(activeHit);
+			const node = scene.getNode(id);
 			if (!node) return;
-			e.stopPropagation();
-			if (isBubble(node)) {
-				togglePin(node._clusterId);
-				return;
-			}
-			router.push(hrefFor(node));
-		};
-		const onOver = (e: MouseEvent) => {
-			const label = closestLabel(e);
-			if (!label?.dataset.nodeId) return;
-			const node = nodesByIdRef.current.get(label.dataset.nodeId);
-			if (!node || isBubble(node)) return;
-			setHoveredNode(node);
-		};
-		const onOut = (e: MouseEvent) => {
-			const label = closestLabel(e);
-			if (!label) return;
-			// Moving from one label straight onto another — let `over`
-			// on the new label take care of the swap.
-			const related = (e.relatedTarget as HTMLElement | null)?.closest(
-				".galaxy-label",
-			);
-			if (related) return;
-			setHoveredNode(null);
-		};
-		container.addEventListener("click", onClick);
-		container.addEventListener("mouseover", onOver);
-		container.addEventListener("mouseout", onOut);
-		return () => {
-			container.removeEventListener("click", onClick);
-			container.removeEventListener("mouseover", onOver);
-			container.removeEventListener("mouseout", onOut);
-		};
-	}, [router]);
+			setKeyboardFocusNode(node);
+			scene.flyTo([id], 1.4);
+		}, [activeHit, data]);
 
-
-	const clusters = useMemo<GraphCluster[]>(
-		() => data?.clusters ?? [],
-		[data],
-	);
-	const clusterIndex = useMemo(
-		() => indexByCluster(data?.nodes ?? []),
-		[data],
-	);
-
-	// Reuse the same FgNode / FgClusterBubble *object reference* across
-	// graphData rebuilds for ids that haven't disappeared. The library
-	// caches threeObjects by id, but if every rebuild hands it new
-	// object references it can't tell that an unchanged id is unchanged
-	// and rebuilds anyway — that's where the duplicate-labels-on-pan
-	// behaviour was coming from. We only mint new objects for ids we
-	// haven't seen before; everything else is handed back as-is.
-	const cachedNodesRef = useRef<Map<string, FgNode>>(new Map());
-	const cachedBubblesRef = useRef<Map<string, FgClusterBubble>>(new Map());
-
-	// Ahead of expansion-aware graphData: cluster expansion state.
-	// Declared higher up than its previous spot so `graphData` can
-	// depend on it without forward references.
-	const [expandedClusterIds, setExpandedClusterIds] = useState<Set<string>>(
-		() => new Set(),
-	);
-	const [pinnedClusterIds, setPinnedClusterIds] = useState<Set<string>>(
-		() => new Set(),
-	);
-	const lastClusterChangeRef = useRef<Map<string, number>>(new Map());
-
-	// Only nodes that should actually be in the scene right now end up
-	// in `graphData`. Members of a collapsed cluster aren't here at all
-	// — the library disposes their three.js objects and the scene gets
-	// genuinely smaller. That's the difference from the previous
-	// nodeVisibility-based approach: less to render, less to iterate
-	// per frame, and no orphaned CSS2DObjects sticking around in the
-	// DOM with stale screen positions.
-	//
-	// Cost: every expansion change rebuilds graphData and the library
-	// re-evaluates internal lookups. With hysteresis + sticky timing
-	// the state changes infrequently, so amortized cost is fine.
-	const graphData = useMemo(() => {
-		if (!data) {
-			return { nodes: [] as FgAnyNode[], links: [] as FgLink[] };
-		}
-
-		// Decide which member nodes are visible:
-		//   - loose nodes (no cluster) always
-		//   - members of an expanded cluster
-		//   - individually surfaced nodes (focus / search), even when
-		//     their cluster is still collapsed; the bubble continues
-		//     to represent the rest of the cluster
-		const visibleMemberIds = new Set<string>();
-		for (const n of data.nodes) {
-			if (!n.cluster_id) {
-				visibleMemberIds.add(n.id);
-				continue;
-			}
-			if (
-				expandedClusterIds.has(n.cluster_id) ||
-				surfacedNodeIds.has(n.id)
-			) {
-				visibleMemberIds.add(n.id);
-			}
-		}
-
-		const realNodes: FgNode[] = [];
-		for (const n of data.nodes) {
-			if (!visibleMemberIds.has(n.id)) continue;
-			let cached = cachedNodesRef.current.get(n.id);
-			if (!cached) {
-				cached = {
-					...n,
-					fx: n.x,
-					fy: n.y,
-					fz: n.z,
-					val: n.size,
-					color: colorFor(n, palette),
-				};
-				cachedNodesRef.current.set(n.id, cached);
-			}
-			realNodes.push(cached);
-		}
-		// Drop cache entries for nodes no longer visible so they get
-		// freshly built next time they reappear.
-		for (const id of [...cachedNodesRef.current.keys()]) {
-			if (!visibleMemberIds.has(id)) cachedNodesRef.current.delete(id);
-		}
-
-		// One bubble per *currently collapsed* cluster. No bubble for
-		// expanded ones — their members are already in the scene.
-		const bubbles: FgClusterBubble[] = [];
-		const visibleBubbleIds = new Set<string>();
-		for (const c of data.clusters ?? []) {
-			if (expandedClusterIds.has(c.id)) continue;
-			const bubbleId = `__cluster__${c.id}`;
-			visibleBubbleIds.add(bubbleId);
-			let cached = cachedBubblesRef.current.get(bubbleId);
-			if (!cached) {
-				cached = {
-					id: bubbleId,
-					fx: c.centroid_x,
-					fy: c.centroid_y,
-					fz: c.centroid_z,
-					val: 4 + Math.log1p(c.member_ids.length) * 4,
-					color: c.kind === "system" ? palette.system : palette.group,
-					_bubble: true,
-					_clusterId: c.id,
-					_clusterLabel: c.label,
-					_clusterKind: c.kind,
-					_memberCount: c.member_ids.length,
-					_degree: c.degree,
-				};
-				cachedBubblesRef.current.set(bubbleId, cached);
-			}
-			bubbles.push(cached);
-		}
-		for (const id of [...cachedBubblesRef.current.keys()]) {
-			if (!visibleBubbleIds.has(id)) cachedBubblesRef.current.delete(id);
-		}
-
-		// Edge aggregation: every underlying edge is collapsed through
-		// each endpoint's "visible representative" — the node itself
-		// when it's on screen, otherwise the bubble of its cluster.
-		// Real-to-real edges keep their relation type and colour;
-		// anything touching a bubble becomes a neutral aggregated
-		// line with a weight count, so zoom-out reads as a structural
-		// diagram between clusters instead of dozens of disconnected
-		// islands.
-		const repOf = (id: string): string | null => {
-			if (visibleMemberIds.has(id)) return id;
-			const cid = nodeClusterMap.get(id);
-			if (!cid) return null;
-			const bubbleId = `__cluster__${cid}`;
-			// Only valid if the bubble is actually rendered (cluster
-			// is currently collapsed). If the cluster is expanded but
-			// this specific node isn't surfaced, the edge has nothing
-			// to attach to and we skip it.
-			return expandedClusterIds.has(cid) ? null : bubbleId;
-		};
-
-		const links: FgLink[] = [];
-		const aggregated = new Map<
-			string,
-			{ source: string; target: string; weight: number }
-		>();
-		for (const e of data.edges) {
-			const repA = repOf(e.source);
-			const repB = repOf(e.target);
-			if (!repA || !repB || repA === repB) continue;
-			const aIsBubble = repA.startsWith("__cluster__");
-			const bIsBubble = repB.startsWith("__cluster__");
-			if (!aIsBubble && !bIsBubble) {
-				links.push({ source: repA, target: repB, type: e.type });
-				continue;
-			}
-			// Aggregate. Order-independent key so (A,B) and (B,A) merge.
-			const key = repA < repB ? `${repA}|${repB}` : `${repB}|${repA}`;
-			const existing = aggregated.get(key);
-			if (existing) existing.weight += 1;
-			else aggregated.set(key, { source: repA, target: repB, weight: 1 });
-		}
-		for (const a of aggregated.values()) {
-			links.push({
-				source: a.source,
-				target: a.target,
-				type: "aggregated",
-				weight: a.weight,
-			});
-		}
-
-		return { nodes: [...realNodes, ...bubbles] as FgAnyNode[], links };
-	}, [data, palette, expandedClusterIds, surfacedNodeIds]);
-
-	// Index by id for O(1) lookup from the delegated label-click handler
-	// below — clicking a label gives us the node id from `data-node-id`,
-	// then we route based on the node's kind.
-	const nodesByIdRef = useRef<Map<string, FgAnyNode>>(new Map());
-	useEffect(() => {
-		const m = new Map<string, FgAnyNode>();
-		for (const n of graphData.nodes) m.set(n.id, n);
-		nodesByIdRef.current = m;
-		// Drop registry entries for nodes the library just disposed
-		// (cluster collapsed, removed from graphData). applyVisuals
-		// would otherwise keep poking at freed materials, and the DOM
-		// sweep would lose its source of truth.
-		//
-		// For groups specifically: also detach the orphan THREE.Group
-		// from its scene parent. The library's own disposal doesn't
-		// always remove the Group from the scene tree — that's the
-		// reason CSS2DRenderer kept re-appending old label elements
-		// every frame, defeating the DOM sweep. Removing the Group
-		// from its parent takes its CSS2DObject off the traversal
-		// path entirely.
-		for (const id of [...groupsByIdRef.current.keys()]) {
-			if (m.has(id)) continue;
-			const group = groupsByIdRef.current.get(id);
-			if (group?.parent) group.parent.remove(group);
-			groupsByIdRef.current.delete(id);
-		}
-		for (const id of [...labelRegistryRef.current.keys()]) {
-			if (!m.has(id)) labelRegistryRef.current.delete(id);
-		}
-		for (const id of [...labelDomRef.current.keys()]) {
-			if (!m.has(id)) labelDomRef.current.delete(id);
-		}
-		// CSS2DRenderer is append-only: it adds a label's <div> to its
-		// container the first time it sees the CSS2DObject in the
-		// scene, but never removes it. With multiple three.js instances
-		// loaded (the `react-force-graph-3d` warning at startup is the
-		// tell), the labels end up parented to a different container
-		// than the CSS2DRenderer instance we hold a ref to — querying
-		// `cssRenderer.domElement.children` finds nothing.
-		//
-		// Sweep the whole document for `[data-node-id]` and detach
-		// every element that isn't the currently registered one for
-		// its node id. Brutal but reliable: it catches orphans (id no
-		// longer in graphData), stale duplicates (a previous element
-		// for the same id), and labels parented somewhere unexpected.
-		const validElements = new Set(labelDomRef.current.values());
-		const stale: Element[] = [];
-		const allLabels = document.querySelectorAll<HTMLElement>("[data-node-id]");
-		for (const el of allLabels) {
-			if (!validElements.has(el)) stale.push(el);
-		}
-		for (const el of stale) el.remove();
-		// Re-apply tier dim + label LOD to newly-built nodes after the
-		// library has had a frame to call buildNodeObject on them. The
-		// current camera position is fine — we just need the visuals
-		// to catch up to the new node set without waiting for a manual
-		// camera nudge.
-		const raf = requestAnimationFrame(() => applyVisualsRef.current?.());
-		return () => cancelAnimationFrame(raf);
-	}, [graphData]);
-
-	// Recompute the expanded set whenever the camera moves. The budget
-	// hook is intentionally pure — it returns the next set; we only
-	// commit to React state if it changed by reference, which avoids a
-	// re-render storm during a long fly-to animation.
-	useEffect(() => {
-		const fg = fgRef.current;
-		if (!fg) return;
-		const ctrl = fg.controls();
-		if (!ctrl) return;
-		let pending = false;
-		const recompute = () => {
-			pending = false;
-			const cam = fg.camera() as THREE.PerspectiveCamera;
-			const cameraSample = {
-				x: cam.position.x,
-				y: cam.position.y,
-				z: cam.position.z,
-			};
-			setExpandedClusterIds((prev) => {
-				const result = computeExpansion({
-					clusters,
-					looseNodeCount: clusterIndex.loose.length,
-					camera: cameraSample,
-					previous: prev,
-					lastChange: lastClusterChangeRef.current,
-					now: performance.now(),
-					pinnedOpen: pinnedClusterIds,
-				});
-				if (result.changed.size === 0) return prev;
-				const t = performance.now();
-				for (const id of result.changed) {
-					lastClusterChangeRef.current.set(id, t);
-				}
-				return result.expanded;
-			});
-		};
-		const onChange = () => {
-			if (pending) return;
-			pending = true;
-			requestAnimationFrame(recompute);
-		};
-		// Initial pass after data loads — fits the visible set to the
-		// starting camera before any interaction.
-		recompute();
-		const target = ctrl as unknown as {
-			addEventListener?: (e: string, cb: () => void) => void;
-			removeEventListener?: (e: string, cb: () => void) => void;
-		};
-		target.addEventListener?.("change", onChange);
-		return () => {
-			target.removeEventListener?.("change", onChange);
-		};
-	}, [clusters, clusterIndex.loose.length, pinnedClusterIds]);
-
-	// Custom node object — an icosahedron with additive emissive, plus a
-	// soft sprite halo whose size tracks `degree`. Big hubs literally glow.
-	//
-	// Stable across renders: `useCallback` deps are empty so the library
-	// only invokes this once per node id. Live state (search dim, focus
-	// emphasis) is applied later by mutating the registered materials —
-	// rebuilding here is what previously left ghost labels behind.
-	const buildNodeObject = useCallback((n: unknown) => {
-		const anyNode = n as FgAnyNode;
-		// Defensive: if the library calls us for an id we already
-		// registered, detach the previous group + label first so we
-		// don't leave a duplicate behind. CSS2DRenderer would otherwise
-		// keep both in its per-frame traversal and re-append the old
-		// element each frame, defeating any sweep.
-		const priorGroup = groupsByIdRef.current.get(anyNode.id);
-		if (priorGroup?.parent) priorGroup.parent.remove(priorGroup);
-		const priorLabel = labelDomRef.current.get(anyNode.id);
-		if (priorLabel?.parentElement) priorLabel.remove();
-		if (isBubble(anyNode)) {
-			const { group, labelEl, labelObj, haloMat } = buildClusterBubble(
-				anyNode,
-			);
-			labelDomRef.current.set(anyNode.id, labelEl);
-			groupsByIdRef.current.set(anyNode.id, group);
-			labelRegistryRef.current.set(anyNode.id, {
-				obj: labelObj,
-				group,
-				coreMat: null,
-				haloMat,
-				degree: anyNode._degree,
-			});
-			return group;
-		}
-		const node = anyNode;
-		const color = new THREE.Color(node.color);
-		const group = new THREE.Group();
-
-		// Core body
-		const radius = Math.max(2.5, Math.sqrt(node.val) * 1.6);
-		const coreGeo = new THREE.IcosahedronGeometry(radius, 1);
-		const coreMat = new THREE.MeshBasicMaterial({
-			color,
-			transparent: true,
-			opacity: 0.95,
-		});
-		group.add(new THREE.Mesh(coreGeo, coreMat));
-
-		// Invisible hit sphere — extends the click target ~2× past the
-		// visible icosahedron so the cursor doesn't have to land
-		// pixel-perfect. `depthWrite: false` keeps it from interfering
-		// with the z-buffer; `opacity: 0` keeps it invisible. The
-		// raycaster used by react-force-graph-3d still picks it up
-		// because raycasts ignore material opacity.
-		const hitGeo = new THREE.SphereGeometry(radius * 2, 12, 8);
-		const hitMat = new THREE.MeshBasicMaterial({
-			transparent: true,
-			opacity: 0,
-			depthWrite: false,
-		});
-		group.add(new THREE.Mesh(hitGeo, hitMat));
-
-		// Halo — additive sprite that scales with degree. Invisible on leafs.
-		const haloScale = 3 + Math.log1p(node.degree) * 4;
-		let haloMat: THREE.SpriteMaterial | null = null;
-		if (haloScale > 4) {
-			haloMat = new THREE.SpriteMaterial({
-				map: getHaloTexture(),
-				color,
-				transparent: true,
-				opacity: 0.45,
-				blending: THREE.AdditiveBlending,
-				depthWrite: false,
-			});
-			const halo = new THREE.Sprite(haloMat);
-			halo.scale.set(haloScale * radius, haloScale * radius, 1);
-			group.add(halo);
-		}
-
-		// HTML label — always visible. Search dim is applied via a CSS
-		// class toggle on this element later, no rebuild required.
-		const labelEl = document.createElement("div");
-		labelEl.className = "galaxy-label";
-		// Labels are click + hover targets — delegated handlers on the
-		// container read this attribute to map the event back to a node.
-		// Bigger hit area than the sphere itself, plus a discoverable
-		// "click the name" shortcut.
-		labelEl.dataset.nodeId = node.id;
-		labelEl.innerHTML = `<span class="galaxy-label-icon" style="color:${node.color}">${getIconSvg(
-			node.kind,
-			node.subtype,
-		)}</span><span>${escapeHtml(node.label)}</span>`;
-		const labelObj = new CSS2DObject(labelEl);
-		labelObj.position.set(0, radius + 4, 0);
-		group.add(labelObj);
-		labelRegistryRef.current.set(node.id, {
-			obj: labelObj,
-			group,
-			coreMat,
-			haloMat,
-			degree: node.degree,
-		});
-		labelDomRef.current.set(node.id, labelEl);
-		groupsByIdRef.current.set(node.id, group);
-
-		return group;
-	}, []);
-
-	// Camera fly: place the camera so the seed-cluster (seeds + 1-hop
-	// neighbours) fills the viewport with a tight margin. We compute
-	// this directly from cluster centroid + bounding radius rather than
-	// using `zoomToFit`'s pixel-padding model — the latter is too soft
-	// on small clusters (single hit + two neighbours) and leaves the
-	// result feeling far away.
-	const flyToSeeds = useCallback(
-		(seedIds: Iterable<string>, fitFactor = 1.6) => {
-			const fg = fgRef.current;
-			if (!fg) return;
-			const ids = new Set<string>();
-			for (const id of seedIds) {
-				ids.add(id);
-				const ns = adjacency.get(id);
-				if (ns) for (const n of ns) ids.add(n);
-			}
-			if (ids.size === 0 || !data) return;
-
-			// Centroid + bounding radius. We pull positions from the
-			// *full* dataset, not from currently-visible graphData —
-			// surfaced search hits and their 1-hop neighbours haven't
-			// always landed in graphData yet at fly-to time.
-			let cx = 0;
-			let cy = 0;
-			let cz = 0;
-			let count = 0;
-			for (const n of data.nodes) {
-				if (!ids.has(n.id)) continue;
-				cx += n.x;
-				cy += n.y;
-				cz += n.z;
-				count += 1;
-			}
-			if (count === 0) return;
-			cx /= count;
-			cy /= count;
-			cz /= count;
-			let radius = 60; // floor — keeps a single isolated hit from snapping in too close
-			for (const n of data.nodes) {
-				if (!ids.has(n.id)) continue;
-				const r = Math.hypot(n.x - cx, n.y - cy, n.z - cz);
-				if (r > radius) radius = r;
-			}
-
-			// Distance so the cluster's bounding sphere fits the FOV.
-			// `fitFactor` adds breathing room — 1.6 is "snug, not cramped".
-			const cam = fg.camera() as THREE.PerspectiveCamera;
-			const fovRad = (cam.fov * Math.PI) / 180;
-			const distance = (radius * fitFactor) / Math.sin(fovRad / 2);
-
-			// Preserve the user's current viewing angle: keep the same
-			// camera-from-target direction, just translate to the new
-			// centroid and back off by `distance`.
-			const ctrl = fg.controls();
-			const dir = ctrl?.target
-				? new THREE.Vector3()
-						.subVectors(cam.position, ctrl.target)
-						.normalize()
-				: new THREE.Vector3(0, 0, 1);
-			fg.cameraPosition(
-				{
-					x: cx + dir.x * distance,
-					y: cy + dir.y * distance,
-					z: cz + dir.z * distance,
-				},
-				{ x: cx, y: cy, z: cz },
-				900,
-			);
-		},
-		[adjacency, data],
-	);
-
-
-	// Recenter — zoom out to fit the whole map.
-	const recenter = useCallback(() => {
-		fgRef.current?.zoomToFit(700, 80);
-	}, []);
-
-	// On data load: pull camera to a 3/4-perspective home shot, fit
-	// everything, then tune the OrbitControls so panning/zooming feel
-	// like Google Earth instead of a free trackball.
-	useEffect(() => {
-		if (!data || data.nodes.length === 0) return;
-		const fg = fgRef.current;
-		if (!fg) return;
-		// Defer one tick — the library mounts the controls instance
-		// asynchronously and zoomToFit is a no-op before that.
-		const t = setTimeout(() => {
-			const ctrl = fg.controls();
-			if (ctrl) {
-				ctrl.zoomSpeed = 1.6;
-				ctrl.rotateSpeed = 0.7;
-				ctrl.panSpeed = 0.9;
-				ctrl.enableDamping = true;
-				ctrl.dampingFactor = 0.12;
-				// Google-Maps-style mouse mapping: left-drag pans, middle
-				// rotates, right-click does nothing. Pan as the primary
-				// gesture matches what people expect from a map UI.
-				if (ctrl.mouseButtons) {
-					ctrl.mouseButtons.LEFT = THREE.MOUSE.PAN;
-					ctrl.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
-					ctrl.mouseButtons.RIGHT = -1;
-				}
-				// Scroll dollies toward the cursor instead of toward the
-				// orbit target — same feel as Google Maps' wheel zoom.
-				ctrl.zoomToCursor = true;
-			}
-			fg.zoomToFit(800, 80);
-		}, 60);
-		return () => clearTimeout(t);
-	}, [data]);
-
-	// Keyboard camera navigation — arrow keys (universal across keyboard
-	// layouts). Plain arrows pan, Shift+arrows rotate around the orbit
-	// target. Step sizes scale with current zoom so pans feel consistent
-	// at any altitude. Skipped while an input has focus so search
-	// typing / Shift+Enter / row arrow-nav are never hijacked.
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			const t = e.target as HTMLElement | null;
-			if (
-				t?.tagName === "INPUT" ||
-				t?.tagName === "TEXTAREA" ||
-				t?.isContentEditable
-			)
-				return;
-			const fg = fgRef.current;
-			if (!fg) return;
-			const cam = fg.camera() as THREE.PerspectiveCamera;
-			const ctrl = fg.controls();
-			if (!ctrl?.target || !ctrl.update) return;
-			const target = ctrl.target;
-			const dist = cam.position.distanceTo(target);
-			const panStep = dist * 0.06;
-			const rotStep = 0.07;
-			const isArrow =
-				e.key === "ArrowUp" ||
-				e.key === "ArrowDown" ||
-				e.key === "ArrowLeft" ||
-				e.key === "ArrowRight";
-			if (!isArrow) return;
-
-			if (e.shiftKey) {
-				// Rotate. ←/→ orbit around world-up; ↑/↓ tilt around the
-				// camera-right axis (clamped via three's natural OrbitControls
-				// damping).
-				const offset = new THREE.Vector3().subVectors(cam.position, target);
-				if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-					offset.applyAxisAngle(
-						new THREE.Vector3(0, 1, 0),
-						(e.key === "ArrowLeft" ? -1 : 1) * rotStep,
-					);
-				} else {
-					const right = new THREE.Vector3()
-						.crossVectors(cam.up, offset)
-						.normalize();
-					offset.applyAxisAngle(
-						right,
-						(e.key === "ArrowUp" ? -1 : 1) * rotStep,
-					);
-				}
-				cam.position.copy(target).add(offset);
-			} else {
-				// Pan in screen-space directions.
-				const view = new THREE.Vector3().subVectors(cam.position, target);
-				const right = new THREE.Vector3()
-					.crossVectors(cam.up, view)
-					.normalize();
-				const upScreen = new THREE.Vector3()
-					.crossVectors(view, right)
-					.normalize();
-				const move = new THREE.Vector3();
-				if (e.key === "ArrowUp") move.addScaledVector(upScreen, panStep);
-				if (e.key === "ArrowDown") move.addScaledVector(upScreen, -panStep);
-				if (e.key === "ArrowLeft") move.addScaledVector(right, -panStep);
-				if (e.key === "ArrowRight") move.addScaledVector(right, panStep);
-				cam.position.add(move);
-				target.add(move);
-			}
-			e.preventDefault();
-			ctrl.update();
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, []);
-
-	// Resize the CSS2DRenderer to match the canvas — without this the
-	// label DOM layer drifts on first render / window resize.
-	useEffect(() => {
-		const r = css2dRendererRef.current;
-		const el = containerRef.current;
-		if (!r || !el) return;
-		const sync = () => {
-			const rect = el.getBoundingClientRect();
-			r.setSize(rect.width, rect.height);
-		};
-		sync();
-		const ro = new ResizeObserver(sync);
-		ro.observe(el);
-		return () => ro.disconnect();
-	}, []);
-
-
-	// Active hit (parent-driven) → on-map focus + camera fly. Schema
-	// hits (containers / fields) collapse onto their parent asset.
-	//
-	// We resolve the node from the *full* dataset, not from the
-	// currently-rendered graphData — a search hit may land on a node
-	// hiding behind a still-collapsed bubble. The surfacing effect
-	// will then make just that node + its 1-hop neighbours appear,
-	// without forcing the rest of their clusters open.
-	useEffect(() => {
-		if (!activeHit) {
-			setKeyboardFocusNode(null);
-			return;
-		}
-		const id = nodeIdForHit(activeHit);
-		const baseNode = data?.nodes.find((n) => n.id === id);
-		if (!baseNode) return;
-		const cached = cachedNodesRef.current.get(id);
-		const node: FgNode =
-			cached ?? {
-				...baseNode,
-				fx: baseNode.x,
-				fy: baseNode.y,
-				fz: baseNode.z,
-				val: baseNode.size,
-				color: colorFor(baseNode, palette),
-			};
-		setKeyboardFocusNode(node);
-		flyToSeeds([id], 1.4);
-	}, [activeHit, data, palette, flyToSeeds]);
-
-	// Imperative API the parent uses to drive locks + recenters from the
-	// shared search bar (Shift+Enter forwards here when in map mode).
-	useImperativeHandle(
-		ref,
-		() => ({
-			toggleLockHit: (hit: CatalogHit) => {
-				const id = nodeIdForHit(hit);
-				toggleLock(id);
-			},
-			recenter: () => {
-				fgRef.current?.zoomToFit(700, 80);
-			},
-		}),
-		[toggleLock],
-	);
-
-	// Document-level Shift+Enter while a map node is hovered — toggles
-	// its lock. Works regardless of which element has focus so the user
-	// can be typing in the search input and still pin a hovered node.
-	useEffect(() => {
-		if (!hoveredNode) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== "Enter" || !e.shiftKey) return;
-			e.preventDefault();
-			toggleLock(hoveredNode.id);
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [hoveredNode, toggleLock]);
-
-	// Memoize every per-link callback that <ForceGraph3D> reads — the
-	// library re-evaluates them for every link on every render, so a
-	// fresh closure per render = O(N) JS work per render even when the
-	// link styling didn't change. Deps cover the only inputs each one
-	// actually depends on; everything else is captured stably.
-	const linkColor = useCallback(
-		(l: unknown) => {
-			const link = l as {
-				source: string | { id: string };
-				target: string | { id: string };
-				type: string;
-			};
-			const src =
-				typeof link.source === "string" ? link.source : link.source.id;
-			const tgt =
-				typeof link.target === "string" ? link.target : link.target.id;
-			// Aggregated bubble↔X edges are intentionally muted — they
-			// describe structure ("these clusters relate") not specific
-			// relations, so the relation-type palette doesn't apply.
-			if (link.type === "aggregated") {
-				return focusSet && focusSet.has(src) && focusSet.has(tgt)
-					? "rgba(180, 180, 220, 0.9)"
-					: "rgba(160, 160, 200, 0.45)";
-			}
-			const base = relationColor(link.type, palette);
-			if (!focusSet) return withAlpha(base, 0.45);
-			if (focusSet.has(src) && focusSet.has(tgt)) return withAlpha(base, 0.95);
-			return withAlpha(base, 0.22);
-		},
-		[focusSet, palette],
-	);
-
-	const linkWidth = useCallback(
-		(l: unknown) => {
-			const link = l as {
-				source: string | { id: string };
-				target: string | { id: string };
-				type: string;
-				weight?: number;
-			};
-			// Aggregated edges scale width by how many underlying
-			// relations they collapse — a 1-edge bridge stays thin, a
-			// 30-edge highway draws thick. Log-shaped so a 100-edge
-			// hub doesn't become a city block.
-			if (link.type === "aggregated" && link.weight) {
-				return Math.min(6, 0.8 + Math.log1p(link.weight) * 0.9);
-			}
-			if (!focusSet) return 0.7;
-			const src =
-				typeof link.source === "string" ? link.source : link.source.id;
-			const tgt =
-				typeof link.target === "string" ? link.target : link.target.id;
-			return focusSet.has(src) && focusSet.has(tgt) ? 1.6 : 0.5;
-		},
-		[focusSet],
-	);
-
-	// Default particle count: 1 (was 2). Two animated particles per
-	// edge with no focus active was a constant frame-budget tax even
-	// on tiny graphs — cutting it in half keeps the "alive" feel of
-	// the unfocused map while halving the per-frame particle work.
-	const linkDirectionalParticles = useCallback(
-		(l: unknown) => {
-			const link = l as {
-				source: string | { id: string };
-				target: string | { id: string };
-				type: string;
-			};
-			// Aggregated edges read as "static structure" — particles
-			// would imply directional flow we don't have.
-			if (link.type === "aggregated") return 0;
-			if (!focusSet) return 1;
-			const src =
-				typeof link.source === "string" ? link.source : link.source.id;
-			const tgt =
-				typeof link.target === "string" ? link.target : link.target.id;
-			return focusSet.has(src) && focusSet.has(tgt) ? 8 : 1;
-		},
-		[focusSet],
-	);
-
-	const linkDirectionalParticleWidth = useCallback(
-		(l: unknown) => {
-			if (!focusSet) return 2.4;
-			const link = l as {
-				source: string | { id: string };
-				target: string | { id: string };
-			};
-			const src =
-				typeof link.source === "string" ? link.source : link.source.id;
-			const tgt =
-				typeof link.target === "string" ? link.target : link.target.id;
-			return focusSet.has(src) && focusSet.has(tgt) ? 5 : 1.6;
-		},
-		[focusSet],
-	);
-
-	const linkDirectionalParticleColor = useCallback(
-		(l: unknown) => {
-			const link = l as { type: string };
-			return relationColor(link.type, palette);
-		},
-		[palette],
-	);
-
-	// `nodeLabel="" ` would also work but the library types insist on a
-	// fn. Stable identity here means no internal re-evaluation.
-	const emptyNodeLabel = useCallback(() => "", []);
-
-	// Toggle a cluster's pinned-open state. Pinning an already-pinned
-	// cluster collapses it (and lets the budget pass take over again).
-	// `lastClusterChangeRef` is bumped so the budget pass respects the
-	// sticky window after a manual toggle.
-	const togglePin = useCallback((clusterId: string) => {
-		setPinnedClusterIds((prev) => {
-			const next = new Set(prev);
-			const wasPinned = next.has(clusterId);
-			if (wasPinned) next.delete(clusterId);
-			else next.add(clusterId);
-			lastClusterChangeRef.current.set(clusterId, performance.now());
-			// Keep the expanded state in lock-step with pinning so the
-			// click feels instant — the budget pass will reconcile on
-			// the next camera nudge.
-			setExpandedClusterIds((expSet) => {
-				const expNext = new Set(expSet);
-				if (wasPinned) expNext.delete(clusterId);
-				else expNext.add(clusterId);
-				return expNext;
-			});
-			return next;
-		});
-	}, []);
-
-	// Visibility callbacks are gone — graphData itself reflects the
-	// current expansion state. Members of a collapsed cluster aren't
-	// in the array at all; their three.js objects are disposed by the
-	// library and the scene gets genuinely smaller.
-
-	const handleNodeHover = useCallback((n: unknown) => {
-		const node = n as FgAnyNode | null;
-		if (!node) return setHoveredNode(null);
-		// Bubbles get a separate hover affordance (cursor + halo) but
-		// don't drive the per-node hover card — there's no entity to
-		// describe. Real nodes go through the existing hover path.
-		if (isBubble(node)) return setHoveredNode(null);
-		setHoveredNode(node);
-	}, []);
-
-	const handleNodeClick = useCallback(
-		(n: unknown) => {
-			const node = n as FgAnyNode;
-			if (isBubble(node)) {
-				togglePin(node._clusterId);
-				return;
-			}
-			router.push(hrefFor(node));
-		},
-		[router],
-	);
-
-	if (isLoading) {
-		return (
-			<div className="relative w-full h-full flex items-center justify-center">
-				<GalaxySpinner size={220} label="Charting the galaxy…" />
-			</div>
+		// Imperative API — the search bar uses this to toggle locks +
+		// recenter without owning any of the map's internal state.
+		useImperativeHandle(
+			ref,
+			() => ({
+				toggleLockHit: (hit: CatalogHit) => toggleLock(nodeIdForHit(hit)),
+				recenter: () => sceneRef.current?.recenter(),
+			}),
+			[toggleLock],
 		);
-	}
 
-	return (
+		// Document-level Shift+Enter while a node is hovered → toggle
+		// its lock. Works regardless of which element has focus so the
+		// user can be typing in the search input and still pin a hovered
+		// node.
+		useEffect(() => {
+			if (!hoveredNode) return;
+			const onKey = (e: KeyboardEvent) => {
+				if (e.key !== "Enter" || !e.shiftKey) return;
+				e.preventDefault();
+				toggleLock(hoveredNode.id);
+			};
+			document.addEventListener("keydown", onKey);
+			return () => document.removeEventListener("keydown", onKey);
+		}, [hoveredNode, toggleLock]);
+
+		const lockedNodes = useMemo(() => {
+			const scene = sceneRef.current;
+			if (!scene) return [];
+			const out: FgNode[] = [];
+			for (const id of lockedIds) {
+				const n = scene.getNode(id);
+				if (n) out.push(n);
+			}
+			return out;
+		}, [lockedIds]);
+
+		const activePanelNode = hoveredNode ?? keyboardFocusNode;
+
+		// The map container is always rendered so `sceneMountRef`
+		// attaches on first commit — the engine's mount effect needs
+		// the element on the very first run, otherwise it bails (its
+		// deps don't include the ref, so it never re-fires when the
+		// element later appears). The spinner becomes a transient
+		// overlay.
+		return (
 			<div
 				ref={containerRef}
 				className="relative isolate w-full h-full overflow-hidden rounded-xl bg-[#050613]"
-				onMouseLeave={() => {
-					setHoveredNode(null);
-				}}
 			>
-				<ForceGraph3D
-				ref={
-					fgRef as unknown as React.MutableRefObject<
-						/* biome-ignore lint/suspicious/noExplicitAny: library ref is untyped */
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						any
-					>
-				}
-				graphData={graphData}
-				backgroundColor="#050613"
-				cooldownTicks={0}
-				warmupTicks={0}
-				// Orbit feels like Google Earth: fixed up-axis, predictable
-				// rotation. Trackball (the library default) makes every drag
-				// rotate the world's "up", which is what made navigation feel
-				// disorienting — you'd lose track of which way is forward.
-				controlType="orbit"
-				// CSS2DRenderer overlays an HTML layer on top of the WebGL
-				// canvas — every node and edge label is a real <div>. The
-				// library types `extraRenderers` as `WebGLRenderer[]` but
-				// the runtime contract is broader (anything with a `render()`
-				// method works), per the official react-force-graph examples.
-				extraRenderers={
-					extraRenderers as unknown as React.ComponentProps<
-						typeof ForceGraph3D
-					>["extraRenderers"]
-				}
-				// Node visuals are fully custom; built-ins are disabled via
-				// nodeThreeObject + nodeThreeObjectExtend=false.
-				nodeThreeObject={buildNodeObject}
-				nodeThreeObjectExtend={false}
-				// Built-in HTML tooltip disabled — we render our own overlay
-				// that follows the cursor (see <HoverCard /> below).
-				nodeLabel={emptyNodeLabel}
-				linkColor={linkColor}
-				linkWidth={linkWidth}
-				// Don't multiply alpha at the renderer level — the per-link
-				// opacity is already baked into linkColor.
-				linkOpacity={1}
-				// Animated direction: small particles flow along every
-				// edge from source → target, painted in the relation
-				// colour. Count + size scale up on focused edges so the
-				// active cluster reads as a stream of bright dashes
-				// while the surrounding galaxy keeps a subtler pulse.
-				linkDirectionalParticles={linkDirectionalParticles}
-				linkDirectionalParticleSpeed={0.006}
-				linkDirectionalParticleWidth={linkDirectionalParticleWidth}
-				linkDirectionalParticleResolution={6}
-				linkDirectionalParticleColor={linkDirectionalParticleColor}
-				onNodeHover={handleNodeHover}
-				onNodeClick={handleNodeClick}
-				enableNodeDrag={false}
-				enableNavigationControls={true}
-			/>
-
-				{/* Ambient nebulae — same drifting milky-way look as the
-				    page background, scoped to the map. `screen` blend mode
-				    adds the nebula colour to the dark canvas underneath
-				    without dimming the nodes; `pointer-events-none` lets
-				    drags pass through to OrbitControls. */}
+				{/* Dedicated mount target for the imperative scene. The
+				    library appends canvas + CSS2D divs into here; React
+				    never enters this subtree, which keeps its DOM-
+				    deletion paths from racing the library's mutations
+				    on commits affecting the surrounding overlays. */}
+				<div ref={sceneMountRef} className="absolute inset-0" />
+				{isLoading && (
+					<div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[#050613]/85">
+						<GalaxySpinner size={220} label="Charting the galaxy…" />
+					</div>
+				)}
+				{/* Ambient nebulae — same drifting milky-way look as the page
+				    background, scoped to the map. `screen` blend in CSS adds
+				    nebula colour to the dark canvas without dimming nodes. */}
 				<div
 					aria-hidden
 					className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
@@ -1618,45 +292,35 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 				    attention) and falls back to the keyboard-selected
 				    search hit so the panel always reflects what the user
 				    is "looking at" without needing the mouse. */}
-				{(hoveredNode ||
-					keyboardFocusNode ||
-					lockedIds.size > 0) && (
+				{(activePanelNode || lockedIds.size > 0) && (
 					<div className="pointer-events-auto absolute top-4 left-4 z-10 flex flex-col gap-2 max-w-xs">
-						{(() => {
-							const active = hoveredNode ?? keyboardFocusNode;
-							if (!active) return null;
-							return (
-								<NodeInfoPanel
-									node={active}
-									onOpen={() => router.push(hrefFor(active))}
-								/>
-							);
-						})()}
-						{lockedIds.size > 0 && (
+						{activePanelNode && (
+							<NodeInfoPanel
+								node={activePanelNode}
+								onOpen={() => router.push(hrefFor(activePanelNode))}
+							/>
+						)}
+						{lockedNodes.length > 0 && (
 							<div className="flex flex-wrap gap-1.5">
-								{[...lockedIds].map((id) => {
-									const node = graphData.nodes.find((n) => n.id === id);
-									if (!node || isBubble(node)) return null;
-									return (
-										<button
-											key={id}
-											type="button"
-											onClick={() => unlock(id)}
-											title={`Unlock ${node.label}`}
-											className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-background/80 backdrop-blur-sm px-2.5 py-1 text-xs text-foreground hover:bg-background/95 transition-colors shadow-lg shadow-primary/10"
-										>
-											<span
-												className="size-2 rounded-full"
-												style={{ backgroundColor: node.color }}
-											/>
-											<span className="max-w-[160px] truncate">
-												{node.label}
-											</span>
-											<X className="size-3 opacity-60" />
-										</button>
-									);
-								})}
-								{lockedIds.size > 1 && (
+								{lockedNodes.map((node) => (
+									<button
+										key={node.id}
+										type="button"
+										onClick={() => unlock(node.id)}
+										title={`Unlock ${node.label}`}
+										className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-background/80 backdrop-blur-sm px-2.5 py-1 text-xs text-foreground hover:bg-background/95 transition-colors shadow-lg shadow-primary/10"
+									>
+										<span
+											className="size-2 rounded-full"
+											style={{ backgroundColor: node.color }}
+										/>
+										<span className="max-w-[160px] truncate">
+											{node.label}
+										</span>
+										<X className="size-3 opacity-60" />
+									</button>
+								))}
+								{lockedNodes.length > 1 && (
 									<button
 										type="button"
 										onClick={clearLocks}
@@ -1670,10 +334,12 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 					</div>
 				)}
 
+				{SHOW_PERF_OVERLAY && <MapPerfOverlay sceneRef={sceneRef} />}
+
 				{/* Recenter button — top right of the map pane. */}
 				<button
 					type="button"
-					onClick={recenter}
+					onClick={() => sceneRef.current?.recenter()}
 					className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-background/65 backdrop-blur-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors shadow-lg shadow-primary/10"
 					aria-label="Recenter the map"
 				>
@@ -1700,6 +366,10 @@ export const GalaxyMap = forwardRef<GalaxyMapHandle, GalaxyMapProps>(
 		);
 	},
 );
+
+// ============================================================================
+// Overlays — pure React, decoupled from the engine.
+// ============================================================================
 
 /**
  * Loosely-typed shape for a fetched entity detail — every kind shares
@@ -1743,9 +413,9 @@ function useNodeDetail(node: FgNode | null) {
 /**
  * Top-left info card for the currently "active" node — what the user
  * is hovering or keyboard-selecting. The basics (icon, name, kind,
- * connection count) are filled from the graph-map payload synchronously;
+ * connection count) come from the graph-map payload synchronously;
  * description + kind-specific fields stream in once the entity-detail
- * fetch resolves. Cached + dedup'd so skimming results stays cheap.
+ * fetch resolves.
  */
 function NodeInfoPanel({
 	node,
@@ -1764,12 +434,10 @@ function NodeInfoPanel({
 	const isRule = node.kind === "rule";
 	return (
 		<div className="rounded-xl border border-primary/25 bg-background/85 backdrop-blur-sm shadow-lg shadow-primary/10 px-4 py-3 space-y-1.5">
-			{/* Heading: icon + name */}
 			<div className="flex items-center gap-2 min-w-0">
 				<Icon className="size-4 shrink-0" style={{ color: node.color }} />
 				<span className="font-medium text-sm truncate">{node.label}</span>
 			</div>
-			{/* Meta line: kind · subtype · connections [· status] */}
 			<div className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 flex-wrap">
 				<span>{node.kind}</span>
 				<span aria-hidden>·</span>
@@ -1791,19 +459,16 @@ function NodeInfoPanel({
 					</>
 				)}
 			</div>
-			{/* Description */}
 			{detail?.description && (
 				<p className="text-xs text-muted-foreground/90 line-clamp-3 leading-snug">
 					{detail.description}
 				</p>
 			)}
-			{/* Location (assets) */}
 			{isAsset && detail?.location && (
 				<div className="text-[10px] font-mono text-muted-foreground/80 truncate">
 					{detail.location}
 				</div>
 			)}
-			{/* Email (persons) */}
 			{isPerson && detail?.email && (
 				<a
 					href={`mailto:${detail.email}`}
@@ -1813,7 +478,6 @@ function NodeInfoPanel({
 					{detail.email}
 				</a>
 			)}
-			{/* Footer: view-details link */}
 			<button
 				type="button"
 				onClick={onOpen}
@@ -1833,10 +497,8 @@ function NodeInfoPanel({
  * The card tracks the cursor via a DOM listener that mutates inline
  * styles directly on the wrapper div — pulling the cursor through
  * React state at 60 Hz on the parent re-rendered the whole canvas
- * tree (including every memoized link callback) for each pixel of
- * mouse motion, which was the single biggest cause of the lag in
- * #25. With a ref-driven update only this tiny wrapper changes per
- * frame, leaving `<ForceGraph3D>` untouched.
+ * tree, which was the single biggest cause of the original lag in #25.
+ * With a ref-driven update only this tiny wrapper changes per frame.
  */
 function HoverCard({
 	node,
@@ -1874,8 +536,8 @@ function HoverCard({
 			ref={cardRef}
 			className="pointer-events-none absolute z-10 rounded-md border border-primary/25 bg-background/90 backdrop-blur-sm px-3 py-2 shadow-xl shadow-primary/10 transition-opacity duration-75"
 			style={{
-				// Hidden until the first mousemove writes the position; otherwise
-				// the card flashes at (0,0) on hover-enter for one frame.
+				// Hidden until first mousemove writes the position; otherwise
+				// the card flashes at (0,0) for one frame on hover-enter.
 				left: -9999,
 				top: -9999,
 				opacity: 0,
@@ -1905,115 +567,6 @@ function HoverCard({
 	);
 }
 
-/**
- * Deterministic small hue offset per cluster id, so 16 system bubbles
- * aren't all the same green. Hash into [-0.08, +0.08] in the HSL hue
- * channel — about ±29° of rotation, enough to distinguish clusters
- * without leaving the kind's palette band.
- */
-function clusterHueOffset(id: string): number {
-	let h = 0;
-	for (let i = 0; i < id.length; i++) {
-		h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-	}
-	return ((Math.abs(h) % 1000) / 1000) * 0.16 - 0.08;
-}
-
-/**
- * Build a cluster-bubble three.js object — drawn instead of N
- * individual icosahedra when a cluster is collapsed.
- *
- * Visual: a soft additive halo standing in for "place this cluster
- * sits in the galaxy" and an invisible hit sphere for click. The
- * earlier wireframe + solid sphere pair was visual noise at zoom-out
- * (24 of them overlapping) — a single luminous spot reads cleaner
- * and lets per-cluster hue + label do the differentiating work.
- *
- * Returns the label element + label object + halo material so the
- * caller can register them for the DOM-cleanup sweep and the
- * focus-tier / distance-LOD applyVisuals pass.
- */
-function buildClusterBubble(bubble: FgClusterBubble): {
-	group: THREE.Group;
-	labelEl: HTMLElement;
-	labelObj: CSS2DObject;
-	haloMat: THREE.SpriteMaterial;
-} {
-	const baseColor = new THREE.Color(bubble.color);
-	const hueShift = clusterHueOffset(bubble._clusterId);
-	const color = baseColor.clone().offsetHSL(hueShift, 0, 0);
-	const group = new THREE.Group();
-
-	const radius = Math.max(8, bubble.val * 1.4);
-
-	// Invisible hit sphere — bubbles are click targets ("expand this
-	// cluster"). Bigger than the visual halo so the cursor doesn't
-	// have to hunt the centre.
-	const hitGeo = new THREE.SphereGeometry(radius * 1.6, 12, 8);
-	const hitMat = new THREE.MeshBasicMaterial({
-		transparent: true,
-		opacity: 0,
-		depthWrite: false,
-	});
-	group.add(new THREE.Mesh(hitGeo, hitMat));
-
-	// Soft additive halo — the only visible element. Bigger + softer
-	// than per-node halos so it reads as "area" rather than "a point
-	// source", which is the whole point of a bubble vs a leaf node.
-	const haloMat = new THREE.SpriteMaterial({
-		map: getHaloTexture(),
-		color,
-		transparent: true,
-		opacity: 0.5,
-		blending: THREE.AdditiveBlending,
-		depthWrite: false,
-	});
-	const halo = new THREE.Sprite(haloMat);
-	halo.scale.set(radius * 6.5, radius * 6.5, 1);
-	group.add(halo);
-
-	// Label: name + count. Ridable by the same delegated label-click
-	// handler real nodes use — `data-node-id` exposes the *bubble id*
-	// (`__cluster__...`) which the click handler can detect.
-	const labelEl = document.createElement("div");
-	labelEl.className = "galaxy-label galaxy-label-bubble";
-	labelEl.dataset.nodeId = bubble.id;
-	const nameSpan = document.createElement("span");
-	nameSpan.textContent = bubble._clusterLabel;
-	const countSpan = document.createElement("span");
-	countSpan.className = "galaxy-label-count";
-	countSpan.textContent = `${bubble._memberCount}`;
-	labelEl.appendChild(nameSpan);
-	labelEl.appendChild(countSpan);
-	const labelObj = new CSS2DObject(labelEl);
-	labelObj.position.set(0, radius * 1.2, 0);
-	group.add(labelObj);
-	return { group, labelEl, labelObj, haloMat };
-}
-
-/**
- * Radial-gradient halo sprite, built once and reused. Without this every
- * hub would allocate its own texture and the map would tank.
- */
-let _haloTexture: THREE.Texture | null = null;
-function getHaloTexture(): THREE.Texture {
-	if (_haloTexture) return _haloTexture;
-	const canvas = document.createElement("canvas");
-	canvas.width = 128;
-	canvas.height = 128;
-	const ctx = canvas.getContext("2d");
-	if (ctx) {
-		const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-		grad.addColorStop(0, "rgba(255,255,255,1)");
-		grad.addColorStop(0.3, "rgba(255,255,255,0.45)");
-		grad.addColorStop(1, "rgba(255,255,255,0)");
-		ctx.fillStyle = grad;
-		ctx.fillRect(0, 0, 128, 128);
-	}
-	_haloTexture = new THREE.CanvasTexture(canvas);
-	return _haloTexture;
-}
-
 function MapLegend() {
 	const nodes: { label: string; cssVar: string }[] = [
 		{ label: "System", cssVar: "--asset-system" },
@@ -2034,7 +587,6 @@ function MapLegend() {
 	];
 	return (
 		<div className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1.5 text-[11px] max-w-[60%]">
-			{/* Node kinds — coloured dots, mirrors how each entity renders. */}
 			<div className="flex flex-wrap gap-1.5">
 				{nodes.map((e) => (
 					<span
@@ -2052,8 +604,6 @@ function MapLegend() {
 					hubs glow brighter
 				</span>
 			</div>
-			{/* Relations — short lines instead of dots so the marker reads
-			    as an edge, not a node. */}
 			<div className="flex flex-wrap gap-1.5">
 				{relations.map((e) => (
 					<span

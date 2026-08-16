@@ -63,44 +63,49 @@ export interface LabelOpacityParams {
 }
 
 /**
+ * Defaults for the distance-LOD ramp. Exported so the engine's per-
+ * frame fast path can branch on squared thresholds before deciding to
+ * pay for a `sqrt` — most nodes resolve trivially (full alpha or zero)
+ * and never need the actual distance.
+ */
+export const LOD_DEFAULTS = {
+	dNear: 600,
+	dFar: 1500,
+	hubBonus: 220,
+} as const;
+
+/**
  * Compute the final opacity for a node label given camera distance,
  * node degree, and focus tier. Returns a number in [0, 1].
  *
  * The contract:
- *   - **Seed and neighbour tiers** ignore distance entirely — when the
- *     user has focused something, the focused node and its 1-hop ring
- *     stay readable at any zoom. Distance LOD on a focused label felt
- *     wrong: you tell the system "show me this," and then it fades on
- *     pan? No.
- *   - **Other** tier (focused mode, off-tier nodes) caps at the tier
- *     alpha (~0.12). They're already barely visible; the distance
- *     falloff would just be noise on top of "very dim."
- *   - **Unfocused** (no focus active anywhere) is the only tier where
- *     distance LOD applies. Below `dNear` the label is full alpha;
- *     above `dFar + hubBonus * log1p(degree)` it's invisible; linear
- *     lerp in between. Hub bonus keeps high-degree nodes' labels
- *     alive longer as the camera pulls back.
+ *   - **Seed** is the only tier that bypasses distance LOD. The user
+ *     directly hovered / locked / keyboard-selected this node — they
+ *     pointed at it, fading it on a pan would feel broken.
+ *   - **Neighbour, other, unfocused** all run through the distance LOD,
+ *     scaled by their tier alpha. This is the "zoom-adapted focus"
+ *     contract: hovering a hub at zoom-out shouldn't suddenly pop
+ *     dozens of neighbour labels into view — the user is reading the
+ *     architecture view at that zoom, the cursor was incidental.
+ *     When the camera moves close, neighbour labels resurface
+ *     naturally because the distance LOD lets them through.
+ *   - **Hub bonus** still applies on the distance ramp so high-degree
+ *     nodes hold their labels longer than leaves.
  */
 export function computeLabelOpacity(p: LabelOpacityParams): number {
 	const {
 		distance,
 		degree,
 		focusTier,
-		dNear = 600,
-		dFar = 1500,
-		hubBonus = 220,
+		dNear = LOD_DEFAULTS.dNear,
+		dFar = LOD_DEFAULTS.dFar,
+		hubBonus = LOD_DEFAULTS.hubBonus,
 	} = p;
 	const tierAlpha = FOCUS_ALPHA[focusTier];
 	if (tierAlpha === 0) return 0;
 
-	// Focused / 1-hop labels skip the distance LOD: the user has
-	// asked the system to show them this; honour it at any zoom.
-	if (focusTier === "seed" || focusTier === "neighbour") {
-		return tierAlpha;
-	}
-	// Off-tier in focus mode is already aggressively dim; layering
-	// distance falloff on top doesn't add information.
-	if (focusTier === "other") {
+	// Seed bypasses distance LOD: the user pointed at this exact node.
+	if (focusTier === "seed") {
 		return tierAlpha;
 	}
 

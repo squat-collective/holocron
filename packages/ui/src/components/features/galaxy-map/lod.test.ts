@@ -21,6 +21,13 @@ describe("computeLabelOpacity", () => {
 				focusTier: "neighbour",
 			}),
 		).toBeCloseTo(FOCUS_ALPHA.neighbour);
+		expect(
+			computeLabelOpacity({
+				distance: 100,
+				degree: 0,
+				focusTier: "unfocused",
+			}),
+		).toBeCloseTo(FOCUS_ALPHA.unfocused);
 	});
 
 	it("returns 0 well past the far threshold for a leaf", () => {
@@ -69,21 +76,27 @@ describe("computeLabelOpacity", () => {
 		expect(far).toBe(0);
 	});
 
-	it("'other' tier dims aggressively even when up close", () => {
-		// 0.12 cap means even a focused-mode neighbour-of-nothing label is faint.
-		const opacity = computeLabelOpacity({
+	it("'other' tier dims via the distance ramp scaled by its tier alpha", () => {
+		// 0.12 cap × full distance alpha when up close — still faint.
+		const close = computeLabelOpacity({
 			distance: 0,
 			degree: 0,
 			focusTier: "other",
 		});
-		expect(opacity).toBeCloseTo(FOCUS_ALPHA.other);
-		expect(opacity).toBeLessThan(0.2);
+		expect(close).toBeCloseTo(FOCUS_ALPHA.other);
+		expect(close).toBeLessThan(0.2);
+		// Far away the multiplier zeroes it out — no label at all.
+		const far = computeLabelOpacity({
+			distance: 5000,
+			degree: 0,
+			focusTier: "other",
+		});
+		expect(far).toBe(0);
 	});
 
 	it("focused (seed) labels ignore distance LOD", () => {
 		// When the user has locked or hovered a node, its label should
-		// stay readable at any zoom — the distance LOD only fires when
-		// nothing is focused.
+		// stay readable at any zoom — they pointed at it directly.
 		const close = computeLabelOpacity({
 			distance: 0,
 			degree: 0,
@@ -98,7 +111,11 @@ describe("computeLabelOpacity", () => {
 		expect(far).toBe(FOCUS_ALPHA.seed);
 	});
 
-	it("neighbour (1-hop) labels ignore distance LOD", () => {
+	it("neighbour (1-hop) labels respect distance LOD", () => {
+		// Hover at zoom-out shouldn't force every 1-hop neighbour label
+		// to pop to full alpha — that's the bug "all nodes appear on
+		// hover" referred to. Neighbours fade with distance like
+		// unfocused does, just at a reduced tier alpha.
 		const close = computeLabelOpacity({
 			distance: 0,
 			degree: 0,
@@ -109,8 +126,8 @@ describe("computeLabelOpacity", () => {
 			degree: 0,
 			focusTier: "neighbour",
 		});
-		expect(close).toBe(FOCUS_ALPHA.neighbour);
-		expect(far).toBe(FOCUS_ALPHA.neighbour);
+		expect(close).toBeCloseTo(FOCUS_ALPHA.neighbour);
+		expect(far).toBe(0);
 	});
 });
 
